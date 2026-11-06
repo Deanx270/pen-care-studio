@@ -47,3 +47,9 @@ Run `.\.venv\Scripts\python.exe verify.py`, `verify_access.py`, and `verify_paym
 The interface uses larger Segoe UI body and table text, serif page titles, a warm paper workspace, and labelled status badges. The queue groups pen and customer on two lines. Below 1180 logical pixels, selected-job details use the full content width; **Back to queue** preserves the current filters. Dialog content scrolls on short displays while Save and Cancel remain reachable.
 
 Run `python verify_design.py` with the project environment to check shared header placement, count alignment, keyboard activation, compact navigation, empty-state actions, and dialog bounds. `python review_refinement.py` captures all pages with empty and fictional in-memory data in `screenshots/refinement`. Set `QT_SCALE_FACTOR` to `1.5` or `2` for additional scaling checks. These checks do not open the real database.
+
+## Repository layout
+
+The local `saturation-point` directory is the Git repository root. GitHub therefore shows `app.py`, `store.py`, and the other project files directly at the repository root; no enclosing `saturation-point` folder is expected after cloning.
+
+Source, automated checks, the current visual-review script, packaging configuration, and user instructions are tracked. Local planning references, generated presentations, screenshots, databases, virtual environments, builds, and distribution ZIPs are excluded. Downloadable Windows packages are prepared separately from the source repository.

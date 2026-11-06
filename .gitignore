@@ -9,3 +9,19 @@ dist/
 *.zip
 .buildenv/
 release-dist/
+
+# Local planning and presentation deliverables
+/planning/
+/output/
+
+# Superseded, local-only screenshot helpers
+/capture.py
+/render_payments.py
+/review_ui.py
+
+# SQLite sidecars and Python/tool caches
+*.sqlite3-wal
+*.sqlite3-shm
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
