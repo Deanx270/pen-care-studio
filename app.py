@@ -5,7 +5,7 @@ from PySide6.QtCore import Qt, QDate, QSortFilterProxyModel
 from PySide6.QtGui import QAction, QColor, QFont, QPalette, QStandardItem, QStandardItemModel
 from PySide6.QtWidgets import *
 from PySide6.QtPrintSupport import QPrinter, QPrintDialog
-from store import Store, SERVICES, STATUSES, NEXT, ticket, money, due_label, payment_status
+from store import Store, SERVICES, STATUSES, NEXT, ticket, money, due_label, payment_status, balance_text
 
 def title(s, size=20):
     w=QLabel(s); w.setFont(QFont('Georgia',size)); w.setWordWrap(True); return w
@@ -34,6 +34,29 @@ def clear_layout(layout):
 
 def separator():
     f=QFrame(); f.setFrameShape(QFrame.HLine); f.setStyleSheet('color:#E8E2D8'); return f
+
+class LoginDialog(QDialog):
+    def __init__(self, store, parent=None):
+        super().__init__(parent); self.store=store; self.setup=not store.has_password(); self.setWindowTitle('Staff access'); self.resize(460,400)
+        v=QVBoxLayout(self); v.setContentsMargins(28,24,28,24); v.setSpacing(12)
+        v.addWidget(title('The Saturation Point',19)); v.addWidget(text('PEN CARE STUDIO · STAFF ACCESS',True)); v.addWidget(separator())
+        v.addWidget(title('Create staff password' if self.setup else 'Staff sign in',15))
+        v.addWidget(text('Create one local staff password (at least 8 characters). Keep it safe; there is no automatic password recovery.' if self.setup else 'Enter the password created on this computer.',True))
+        self.error=text(''); self.error.setStyleSheet('color:#9F1239;font-weight:600'); v.addWidget(self.error)
+        form=QFormLayout(); form.setSpacing(10); self.password=QLineEdit(); self.password.setEchoMode(QLineEdit.Password); form.addRow('Password',self.password)
+        self.confirm=QLineEdit(); self.confirm.setEchoMode(QLineEdit.Password)
+        if self.setup: form.addRow('Confirm password',self.confirm)
+        v.addLayout(form); self.demo=QCheckBox('Open demo workspace (sample data)'); v.addWidget(self.demo); v.addWidget(text('Demo jobs are stored separately from real jobs.',True)); v.addStretch()
+        buttons=QDialogButtonBox(QDialogButtonBox.Cancel); self.submit=buttons.addButton('Create and open' if self.setup else 'Sign in',QDialogButtonBox.AcceptRole); self.submit.setObjectName('primary'); buttons.accepted.connect(self.authenticate); buttons.rejected.connect(self.reject); v.addWidget(buttons); self.password.setFocus()
+    def authenticate(self):
+        password=self.password.text()
+        try:
+            if self.setup:
+                if password!=self.confirm.text(): raise ValueError('Passwords do not match.')
+                self.store.set_initial_password(password)
+            elif not self.store.verify_password(password): raise ValueError('Incorrect staff password. Try again.')
+            self.accept()
+        except Exception as e: self.error.setText(str(e)); self.password.setFocus()
 
 class Intake(QDialog):
     def __init__(self, store, parent=None, job=None):
@@ -91,7 +114,7 @@ def summary_html(store, j):
     esc=lambda s:html.escape(str(s or '—')).replace('\n','<br>')
     paid=store.paid_centavos(j['id']); payments=store.payments(j['id'])
     lines=''.join(f"<p>{esc(p['received_at'])} · {esc(p['method'])} · {money(p['amount_centavos']/100)}"+(f"<br>{esc(p['note'])}" if p['note'] else '')+'</p>' for p in reversed(payments)) or '<p>No payment recorded.</p>'
-    return f"""<h2>The Saturation Point</h2><p>Pen Care Studio · Service summary</p><hr><h3>{ticket(j['id'])} &nbsp; | &nbsp; {esc(j['status'])}</h3><p><b>Customer:</b> {esc(j['customer'])}<br><b>Pen:</b> {esc(j['pen'])}<br><b>Received:</b> {esc(j['created'][:10])}<br><b>Promised:</b> {esc(j['due'])}<br><b>Picked up:</b> {esc(j['claimed'][:10] if j['claimed'] else None)}</p><hr><p><b>Requested work</b><br>{esc(j['services'])}</p><p><b>Condition at intake</b><br>{esc(j['condition'])}</p><p><b>Estimate:</b> {money(j['estimate'])}<br><b>Payments recorded:</b> {money(paid/100)}<br><b>Payment status:</b> {esc(payment_status(j,paid))}</p><p>Payment status compares recorded payments with the estimate; the estimate is not a final invoice.</p><hr><b>Payment details</b>{lines}"""
+    return f"""<h2>The Saturation Point</h2><p>Pen Care Studio · Service summary</p><hr><h3>{ticket(j['id'])} &nbsp; | &nbsp; {esc(j['status'])}</h3><p><b>Customer:</b> {esc(j['customer'])}<br><b>Pen:</b> {esc(j['pen'])}<br><b>Received:</b> {esc(j['created'][:10])}<br><b>Promised:</b> {esc(j['due'])}<br><b>Picked up:</b> {esc(j['claimed'][:10] if j['claimed'] else None)}</p><hr><p><b>Requested work</b><br>{esc(j['services'])}</p><p><b>Condition at intake</b><br>{esc(j['condition'])}</p><p><b>Estimate:</b> {money(j['estimate'])}<br><b>Payments recorded:</b> {money(paid/100)}<br><b>Payment status:</b> {esc(payment_status(j,paid))}<br><b>{esc(balance_text(j,paid))}</b></p><p>Payment status compares recorded payments with the estimate; the estimate is not a final invoice.</p><hr><b>Payment details</b>{lines}"""
 
 class Proxy(QSortFilterProxyModel):
     def __init__(self): super().__init__(); self.query=''; self.status='All statuses'; self.due='Any due date'
@@ -214,7 +237,7 @@ class Main(QMainWindow):
         self.detail.addLayout(actions)
         h=QHBoxLayout(); note=btn('Add work note'); note.clicked.connect(self.add_note); h.addWidget(note); receipt=btn('Service summary'); receipt.clicked.connect(self.receipt); h.addWidget(receipt); self.detail.addLayout(h)
         self.detail.addWidget(separator())
-        for name,value in [('REQUESTED WORK',j['services']),('INTAKE CONDITION',j['condition'] or 'No condition notes recorded.'),('ESTIMATE',money(j['estimate'])),('PAYMENT',f"{payment_status(j,self.store.paid_centavos(j['id']))} · {money(self.store.paid_centavos(j['id'])/100)} recorded"),('CONTACT',' · '.join(filter(None,[j['phone'],j['email']])) or 'No contact details recorded.')]: self.detail.addWidget(text(name,True)); self.detail.addWidget(text(value))
+        for name,value in [('REQUESTED WORK',j['services']),('INTAKE CONDITION',j['condition'] or 'No condition notes recorded.'),('ESTIMATE',money(j['estimate'])),('PAYMENT',f"{payment_status(j,self.store.paid_centavos(j['id']))} · {money(self.store.paid_centavos(j['id'])/100)} recorded · {balance_text(j,self.store.paid_centavos(j['id']))}"),('CONTACT',' · '.join(filter(None,[j['phone'],j['email']])) or 'No contact details recorded.')]: self.detail.addWidget(text(name,True)); self.detail.addWidget(text(value))
         self.detail.addWidget(separator())
         if j['status'] not in ('Claimed','Cancelled'):
             cancel=btn('Cancel job…'); cancel.clicked.connect(self.cancel); self.detail.addWidget(cancel)
@@ -229,7 +252,7 @@ class Main(QMainWindow):
         if d.exec(): self.refresh(); self.statusBar().showMessage(f"Payment recorded for {ticket(j['id'])}",6000)
     def advance(self):
         j=self.store.get(self.selected); target=NEXT[j['status']]
-        if target=='Claimed' and QMessageBox.question(self,'Confirm pickup',f"Mark {ticket(j['id'])} as claimed by the customer?\n\n{payment_status(j,self.store.paid_centavos(j['id']))} · {money(self.store.paid_centavos(j['id'])/100)} recorded against estimate {money(j['estimate'])}.")!=QMessageBox.Yes: return
+        if target=='Claimed' and QMessageBox.question(self,'Confirm pickup',f"Mark {ticket(j['id'])} as claimed by the customer?\n\n{payment_status(j,self.store.paid_centavos(j['id']))} · {money(self.store.paid_centavos(j['id'])/100)} recorded against estimate {money(j['estimate'])}.\n{balance_text(j,self.store.paid_centavos(j['id']))}.")!=QMessageBox.Yes: return
         self.store.transition(j['id'],target); self.refresh(); self.statusBar().showMessage(f'{ticket(j["id"])} marked {target.lower()}',6000)
     def cancel(self):
         j=self.store.get(self.selected)
@@ -279,8 +302,18 @@ def main():
     parser=argparse.ArgumentParser(); parser.add_argument('--db',help='SQLite database path'); parser.add_argument('--demo',action='store_true',help='Add sample jobs only if database is empty'); args=parser.parse_args()
     app=QApplication(sys.argv); app.setStyle('Fusion'); app.setFont(QFont('Segoe UI',10)); palette=app.palette(); palette.setColor(QPalette.Window,QColor('#FAF9F6')); palette.setColor(QPalette.Base,QColor('#FFFFFF')); palette.setColor(QPalette.Text,QColor('#1C1917')); palette.setColor(QPalette.WindowText,QColor('#1C1917')); palette.setColor(QPalette.Highlight,QColor('#EDE3CF')); palette.setColor(QPalette.HighlightedText,QColor('#1C1917')); app.setPalette(palette)
     app.setStyleSheet('''QPushButton { padding:5px 12px; border:1px solid #CFC7BA; border-radius:4px; background:#FFFDF8; color:#1C1917; } QPushButton:hover { background:#F2EDE4; } QPushButton:focus { border:2px solid #8C5A00; } QPushButton#primary { background:#1C1917; color:white; border:1px solid #1C1917; font-weight:600; } QPushButton#primary:hover { background:#403832; } QLineEdit,QComboBox,QDateEdit,QDoubleSpinBox,QTextEdit { padding:5px; border:1px solid #CFC7BA; border-radius:4px; background:white; min-height:24px; } QLineEdit:focus,QComboBox:focus,QTextEdit:focus { border:2px solid #8C5A00; } QFrame#rail { background:#1C1917; } QLabel#brand { color:#FFFDF8; } QLabel#railCaption { color:#D5C6AC; font-size:9pt; } QPushButton#nav { text-align:left; color:#E8E2D8; background:transparent; border:0; padding:9px; } QPushButton#nav:checked { background:#40372F; border-left:3px solid #CA8A04; color:white; } QPushButton#nav:hover { background:#40372F; } QPushButton#triage { text-align:left; border:0; border-bottom:1px solid #E8E2D8; border-radius:0; padding:14px 4px; background:transparent; font-weight:600; } QPushButton#triage:focus { border:2px solid #8C5A00; } QPushButton#triage:hover { background:#F2EDE4; } QListWidget#recent { background:#FFFDF8; border:1px solid #E8E2D8; } QListWidget#recent::item { padding:9px 12px; border-bottom:1px solid #EEE9E1; } QLabel#emptyState { padding:24px; background:#FFFDF8; border:1px solid #E8E2D8; color:#57534E; } QLabel#statusBadge { padding:5px 10px; background:#EDE6D7; color:#654600; font-weight:600; } QLabel#reportTotal { padding:16px; background:#F2EDE4; font-weight:600; } QTableWidget { background:#FFFDF8; gridline-color:#EEE9E1; border:1px solid #E8E2D8; } QHeaderView::section { background:#F5F2EC; border:0; border-bottom:1px solid #E8E2D8; padding:8px; color:#44403C; font-weight:600; } QTableView { gridline-color:#EEE9E1; border:1px solid #E8E2D8; }''')
+    if args.demo and not args.db: parser.error('--demo requires a separate --db path')
     db=args.db or str(Path(os.environ.get('LOCALAPPDATA',str(Path.home()))) / 'TheSaturationPoint' / 'PenCareStudio' / 'jobs.sqlite3'); store=Store(db)
-    if args.demo: store.seed()
-    window=Main(store); window.show(); return app.exec()
+    login=LoginDialog(store)
+    if not login.exec(): store.db.close(); return 0
+    is_demo=login.demo.isChecked() or args.demo
+    if login.demo.isChecked():
+        demo_path=Path(db).with_name(Path(db).stem+'-demo.sqlite3'); is_new=not demo_path.exists(); store.db.close(); store=Store(demo_path)
+        if is_new: store.seed()
+    elif args.demo: store.seed()
+    window=Main(store)
+    if is_demo: window.setWindowTitle(window.windowTitle()+' — DEMO DATA'); window.statusBar().showMessage('DEMO DATA · Separate from real jobs')
+    screen=app.primaryScreen().availableGeometry(); window.resize(min(1280,max(800,screen.width()-24)), min(800,max(600,screen.height()-60)))
+    window.show(); result=app.exec(); store.db.close(); return result
 if __name__=='__main__': sys.exit(main())
 

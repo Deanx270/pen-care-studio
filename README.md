@@ -1,16 +1,35 @@
 # The Saturation Point — Pen Care Studio
 
-A local, offline PySide6 service desk for fountain-pen care. Intake records customer and pen details, condition, selected services, an editable estimate and an optional due date. The queue supports search, status and due-date filters, sorting, a selected-job pane, work notes, status changes and pickup. Service summaries can be previewed and sent to a printer or a system PDF printer. Overview links lead to actionable queues; Customers, Services and Reports provide local reference views.
+A local Windows/Python PySide6 staff service desk for fountain-pen care. The app records customer and pen intake, condition, requested services, estimates and due dates; supports editing, search, status and due-date filtering, notes and pickup; and records payments separately from estimates. The job detail and printable service summary show payments and the remaining amount against the estimate. Reports distinguish claimed-job estimates from actual payments recorded.
 
-## Run on Windows
+## For the professor (Windows ZIP)
 
-On the original development machine, the prepared environment can be used directly from this folder in PowerShell:
+1. Download the ZIP, right-click it in File Explorer and choose **Extract All**.
+2. Open the extracted folder and double-click **Pen Care Studio.exe**. Keep the `_internal` folder beside the executable.
+3. On first launch, create and confirm a staff password of at least eight characters. Remember it; there is no password reset. On later launches, sign in with it.
+4. To explore sample records, check **Open demo workspace (sample data)** before opening. The title says **DEMO DATA**. Uncheck it on the next sign-in to return to real jobs.
 
-```powershell
-.\.venv\Scripts\python.exe app.py
-```
+`START_HERE.txt` beside the executable contains the same instructions. The app runs offline; Python and a terminal are not needed for the packaged version.
 
-For a fresh clone or installation with Python 3.10 or newer, create the environment and install dependencies first:
+## Local data and backups
+
+The Windows user’s real data and staff-password hash are stored in `%LOCALAPPDATA%\TheSaturationPoint\PenCareStudio\jobs.sqlite3`. Demo jobs are in `jobs-demo.sqlite3` in the same directory. In File Explorer paste `%LOCALAPPDATA%\TheSaturationPoint\PenCareStudio` into the address bar to locate them. Close the app and copy the database files to back them up. The app does not store its database in the ZIP or application folder. Existing job and payment records remain in place when the staff login table is added.
+
+The one local staff password uses a randomly salted PBKDF2-HMAC-SHA256 hash, not plain text. This is a local sign-in, not full database encryption or protection from someone with access to the Windows files. Back up the real database with its password hash. There is no built-in password recovery.
+
+## Demonstration flow
+
+1. Sign in with **Open demo workspace** checked. Select **Jobs** and search for `Pilot Custom` or filter by **Overdue**.
+2. Select **New intake**, enter a customer and a Lamy Safari, note its condition, select a service, set an estimate and due date, and save.
+3. Select the new ticket and choose **Edit intake** to change its details. Add a work note if desired.
+4. Advance it through **Inspecting**, **In service**, and **Ready**. Select **Record payment**, enter an amount and method, and save. Compare the estimate, amount recorded, and remaining amount.
+5. Open **Service summary**, then choose **Mark claimed** and confirm pickup. Open **Reports** to compare claimed estimates with payments recorded. Use a different demo job to demonstrate cancellation.
+
+Payments are append-only: correction, deletion, and refunds are not supported. Payments made before cancellation remain in the report total; new payments cannot be added to cancelled jobs. The remaining amount is relative to the estimate, not a final invoice. Printed output depends on the system printer.
+
+## Developer setup
+
+Requires Python 3.10 or newer on Windows. From the source folder in PowerShell:
 
 ```powershell
 python -m venv .venv
@@ -18,25 +37,6 @@ python -m venv .venv
 .\.venv\Scripts\python.exe app.py
 ```
 
-If your Python installation cannot bootstrap pip into a virtual environment, install dependencies with the system pip instead: `python -m pip install --target .venv/Lib/site-packages -r requirements.txt`.
+To use an isolated developer database, run `.\.venv\Scripts\python.exe app.py --db test.sqlite3`; create its own staff password on first launch. The sign-in demo checkbox creates a separate `test-demo.sqlite3`. `--demo` requires an explicit `--db` path and seeds that database only if it contains no jobs.
 
-The default database is `%LOCALAPPDATA%\TheSaturationPoint\PenCareStudio\jobs.sqlite3` and starts empty. Back up this file while the app is closed. To explore sample jobs without mixing them with real records, run:
-
-```powershell
-.\.venv\Scripts\python.exe app.py --db demo.sqlite3 --demo
-```
-
-Demo data is added only if that database has no jobs. Use `--db PATH` to choose another database. Never use `--demo` against a real empty database.
-
-## Working at the desk
-
-- Use **New intake** (Ctrl+N) to register a job. Check services before adjusting the suggested estimate; changing services recalculates it.
-- Use **Jobs** and Ctrl+F to search. Click a column heading to sort. Due today and overdue omit ready, claimed and cancelled jobs.
-- Select a job to see its condition, estimate and activity. Add work notes, advance the job, or preview the service summary. The next status follows Received → Inspecting → In service → Ready → Claimed. Pickup and cancellation require confirmation; cancellation cannot be reversed in this release.
-- Use **Edit intake** to correct saved details. Use **Record payment** to add one or more received payments with their date, method and optional note. The summary shows each payment separately from the estimate. Printing depends on your system printer configuration.
-
-Payment status compares the total recorded payments with the estimate; the estimate is not a final invoice. Payments are append-only: corrections, refunds and payment deletion are not supported. Payments already recorded on cancelled jobs remain in the report total, but new payments cannot be added after cancellation. Staff accounts and automatic backups are not included. Activity identifies the operator as “Desk staff”. Existing databases gain a payments table on first launch; existing jobs and history are preserved.
-
-## Verification
-
-Run `.\.venv\Scripts\python.exe verify.py` for database and GUI workflow checks using an in-memory database. Run `.\.venv\Scripts\python.exe verify_payments.py` for migration, editing, payment, receipt, reporting and cancellation checks in a separate temporary database. `capture.py` generates local screenshots in `screenshots/`; its demo databases are separate from real data. Screens were reviewed with Qt scaling at 100%, 150%, and 200%, including a compact 1024×700 logical window. The summary preview was inspected; a physical printer was not exercised.
+Run `.\.venv\Scripts\python.exe verify.py`, `verify_access.py`, and `verify_payments.py` (with the Python executable) for the automated checks. To build on Windows, install PyInstaller 6.22.0 (`.\.venv\Scripts\python.exe -m pip install PyInstaller==6.22.0`) and run `.\.venv\Scripts\python.exe -m PyInstaller --noconfirm --clean "Pen Care Studio.spec"`; copy `START_HERE.txt` into `dist\Pen Care Studio` before zipping that folder.

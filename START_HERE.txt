@@ -1,0 +1,31 @@
+THE SATURATION POINT - PEN CARE STUDIO
+Windows demonstration edition
+
+1. In File Explorer, right-click the downloaded ZIP and select Extract All.
+   Open the extracted folder. Keep Pen Care Studio.exe and the _internal
+   folder together. Do not run the program from inside the ZIP.
+2. Double-click Pen Care Studio.exe. No Python installation or terminal
+   commands are required. If Windows asks whether to run this downloaded
+   unsigned app, check that it is the copy provided by your student.
+3. On first launch, choose and confirm a staff password of at least eight
+   characters. Remember it: this local app has no password recovery. On
+   later launches, enter the same password and select Sign in.
+4. To explore sample jobs, check "Open demo workspace (sample data)"
+   before signing in or completing setup. DEMO DATA appears in the title.
+   Uncheck it on a later sign-in to use the separate real-work database.
+5. Open Jobs, select a ticket, and use the detail actions. New intake adds
+   a pen; status buttons move it toward pickup. Record payment and Service
+   summary show payments separately from estimates.
+
+DATA AND BACKUPS
+The app stores its local database in this Windows user profile:
+%LOCALAPPDATA%\TheSaturationPoint\PenCareStudio\jobs.sqlite3
+The demo workspace uses jobs-demo.sqlite3 in the same folder. To open the
+folder, paste %LOCALAPPDATA%\TheSaturationPoint\PenCareStudio into File
+Explorer's address bar. Close the app before copying both database files
+somewhere safe. Keep the real database: it also contains the password hash.
+Extracting or replacing the app does not remove these databases.
+
+The login is for a single local staff user; it does not encrypt the database.
+This class project is offline and does not connect to Google Drive. Payment
+entries cannot be edited or refunded, and estimates are not final invoices.

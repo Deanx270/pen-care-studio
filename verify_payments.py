@@ -37,3 +37,13 @@ with tempfile.TemporaryDirectory(dir=Path.cwd()) as directory:
     assert store.get(1)['customer']=='Legacy customer'; store.db.close()
 print('Legacy migration, edit, payment, receipt, report and cancellation checks passed')
 
+# A failed payment transaction must not leave a payment, timestamp or activity record behind.
+s=Store(':memory:'); jid=s.create(dict(customer='Test',pen='Lamy',services='Ink flush',estimate=100)); before=dict(s.get(jid)); history=len(s.history(jid))
+s.db.execute("CREATE TRIGGER reject_payment_activity BEFORE INSERT ON activity WHEN NEW.message LIKE 'Payment recorded:%' BEGIN SELECT RAISE(ABORT,'simulated write failure'); END")
+try:
+    s.record_payment(jid,'50.00','Cash','2026-11-06')
+    raise AssertionError('Failure was not raised')
+except sqlite3.IntegrityError: pass
+assert s.paid_centavos(jid)==0 and len(s.history(jid))==history and dict(s.get(jid))==before
+s.db.close()
+print('Failed payment transaction rolls back completely')

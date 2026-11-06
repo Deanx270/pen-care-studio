@@ -3,3 +3,9 @@ __pycache__/
 *.sqlite3
 *.sqlite3-journal
 screenshots/
+
+build/
+dist/
+*.zip
+.buildenv/
+release-dist/

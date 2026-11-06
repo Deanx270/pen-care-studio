@@ -1,4 +1,5 @@
 import sqlite3
+import hashlib, hmac, os
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -22,7 +23,20 @@ class Store:
         ''')
         # CREATE IF NOT EXISTS adds payment storage without rewriting existing jobs.
         with self.db:
+            self.db.execute('CREATE TABLE IF NOT EXISTS staff_login (id INTEGER PRIMARY KEY CHECK(id=1), salt BLOB NOT NULL, password_hash BLOB NOT NULL, iterations INTEGER NOT NULL)')
             self.db.execute('CREATE TABLE IF NOT EXISTS payments(id INTEGER PRIMARY KEY AUTOINCREMENT, job_id INTEGER NOT NULL REFERENCES jobs(id), amount_centavos INTEGER NOT NULL CHECK(amount_centavos > 0), method TEXT NOT NULL, received_at TEXT NOT NULL, note TEXT NOT NULL DEFAULT \'\')')
+    def has_password(self): return self.db.execute('SELECT 1 FROM staff_login WHERE id=1').fetchone() is not None
+    def set_initial_password(self, password):
+        if self.has_password(): raise ValueError('Staff password has already been set.')
+        if len(password)<8: raise ValueError('Use at least 8 characters for the staff password.')
+        salt=os.urandom(16); iterations=600000
+        digest=hashlib.pbkdf2_hmac('sha256',password.encode('utf-8'),salt,iterations)
+        with self.db: self.db.execute('INSERT INTO staff_login(id,salt,password_hash,iterations) VALUES(1,?,?,?)',(salt,digest,iterations))
+    def verify_password(self,password):
+        row=self.db.execute('SELECT salt,password_hash,iterations FROM staff_login WHERE id=1').fetchone()
+        if not row: return False
+        digest=hashlib.pbkdf2_hmac('sha256',password.encode('utf-8'),row['salt'],row['iterations'])
+        return hmac.compare_digest(digest,row['password_hash'])
     def create(self, values):
         if not values.get('customer', '').strip() or not values.get('pen', '').strip() or not values.get('services', '').strip(): raise ValueError('Customer, pen and at least one service are required.')
         stamp = now()
@@ -114,3 +128,9 @@ def payment_status(job, paid_cents):
     if paid_cents < estimate_cents: return 'Part paid against estimate'
     if paid_cents == estimate_cents: return 'Paid against estimate'
     return 'Exceeds estimate'
+
+def balance_text(job, paid_cents):
+    estimate=int((Decimal(str(job['estimate']))*100).quantize(Decimal('1'),rounding=ROUND_HALF_UP))
+    delta=estimate-paid_cents
+    if delta < 0: return f'Above estimate: {money(-delta/100)}'
+    return f'Remaining against estimate: {money(delta/100)}'
