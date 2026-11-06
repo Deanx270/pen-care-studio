@@ -1,0 +1,150 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900" role="img" aria-labelledby="title desc">
+  <title id="title">The Saturation Point Pen Care Studio — Jobs screen concept</title>
+  <desc id="desc">A desktop work queue with a charcoal navigation rail, warm paper background, compact ticket table, and selected job detail panel. Gold is used sparingly for accents.</desc>
+  <defs>
+    <style>
+      .body{font-family:Montserrat,'Segoe UI',sans-serif;fill:#1C1917}
+      .serif{font-family:Lora,Georgia,serif;fill:#1C1917}
+      .small{font-size:12px}.tiny{font-size:11px}.mid{font-size:14px}.large{font-size:28px}
+      .muted{fill:#78716C}.secondary{fill:#44403C}.white{fill:#FFFDF8}.gold{fill:#8C5A00}
+      .semibold{font-weight:600}.bold{font-weight:700}
+    </style>
+  </defs>
+
+  <!-- Application chrome -->
+  <rect width="1440" height="900" fill="#FAF9F6"/>
+  <rect width="218" height="900" fill="#1C1917"/>
+  <rect x="218" width="1222" height="68" fill="#FFFDF8"/>
+  <path d="M218 68H1440" stroke="#E8E2D8"/>
+
+  <!-- Brand rail -->
+  <path d="M29 28h31M29 34h20" stroke="#CA8A04" stroke-width="2"/>
+  <text x="29" y="61" class="serif white" style="font-size:20px">The Saturation</text>
+  <text x="29" y="85" class="serif white" style="font-size:20px">Point</text>
+  <text x="29" y="111" class="body tiny" fill="#D7B66A" letter-spacing="1.8">PEN CARE STUDIO</text>
+  <path d="M28 141H190" stroke="#4B4037"/>
+  <text x="29" y="174" class="body tiny" fill="#B9B0A6" letter-spacing="1.2">WORKSPACE</text>
+  <text x="51" y="220" class="body mid" fill="#D4CCC2">Overview</text>
+  <circle cx="35" cy="215" r="3" fill="#8C837A"/>
+  <rect x="14" y="240" width="190" height="44" rx="6" fill="#38312C"/>
+  <rect x="14" y="240" width="3" height="44" fill="#CA8A04"/>
+  <circle cx="35" cy="262" r="3" fill="#CA8A04"/>
+  <text x="51" y="267" class="body mid white semibold">Jobs</text>
+  <circle cx="35" cy="311" r="3" fill="#8C837A"/>
+  <text x="51" y="316" class="body mid" fill="#D4CCC2">Customers</text>
+  <circle cx="35" cy="359" r="3" fill="#8C837A"/>
+  <text x="51" y="364" class="body mid" fill="#D4CCC2">Services</text>
+  <circle cx="35" cy="407" r="3" fill="#8C837A"/>
+  <text x="51" y="412" class="body mid" fill="#D4CCC2">Reports</text>
+  <path d="M28 810H190" stroke="#4B4037"/>
+  <text x="29" y="842" class="body mid" fill="#D4CCC2">Settings</text>
+  <text x="29" y="873" class="body tiny" fill="#9F968D">Service desk · local</text>
+
+  <!-- Top bar -->
+  <text x="254" y="42" class="body small semibold secondary">WORKSHOP</text>
+  <path d="M336 26v20" stroke="#D8D1C6"/>
+  <text x="353" y="42" class="body small muted">Jobs</text>
+  <circle cx="1310" cy="34" r="17" fill="#EDE7DC"/>
+  <text x="1300" y="39" class="body small semibold gold">DS</text>
+  <text x="1335" y="39" class="body small semibold secondary">Desk staff</text>
+
+  <!-- Page heading and primary action -->
+  <text x="254" y="132" class="serif large">Care jobs</text>
+  <text x="254" y="159" class="body small secondary">Track every pen from intake to pickup.</text>
+  <rect x="1267" y="105" width="143" height="44" rx="5" fill="#1C1917"/>
+  <path d="M1284 127h14M1291 120v14" stroke="#FFFDF8" stroke-width="1.8" stroke-linecap="round"/>
+  <text x="1307" y="133" class="body small white semibold">New intake</text>
+
+  <!-- Actionable, compact summary -->
+  <text x="254" y="205" class="body small secondary"><tspan class="bold">28</tspan> active jobs</text>
+  <circle cx="375" cy="201" r="2" fill="#C9BFAF"/>
+  <text x="388" y="205" class="body small gold semibold">4 due today</text>
+  <circle cx="487" cy="201" r="2" fill="#C9BFAF"/>
+  <text x="500" y="205" class="body small" fill="#9F1239">2 overdue</text>
+  <path d="M254 224H1410" stroke="#E8E2D8"/>
+
+  <!-- Filters -->
+  <rect x="254" y="245" width="51" height="32" rx="4" fill="#1C1917"/>
+  <text x="271" y="266" class="body small white semibold">All</text>
+  <text x="329" y="266" class="body small secondary">Received</text>
+  <text x="426" y="266" class="body small secondary">Inspecting</text>
+  <text x="533" y="266" class="body small secondary">In service</text>
+  <text x="641" y="266" class="body small secondary">Ready for pickup</text>
+  <text x="790" y="266" class="body small secondary">Claimed</text>
+  <rect x="254" y="299" width="388" height="42" rx="5" fill="#FFFFFF" stroke="#DCD5CB"/>
+  <circle cx="274" cy="320" r="6" fill="none" stroke="#78716C" stroke-width="1.6"/>
+  <path d="M279 325l5 5" stroke="#78716C" stroke-width="1.6" stroke-linecap="round"/>
+  <text x="296" y="325" class="body small muted">Search ticket, customer, or pen</text>
+  <rect x="653" y="299" width="142" height="42" rx="5" fill="#FFFFFF" stroke="#DCD5CB"/>
+  <text x="670" y="325" class="body small secondary">Due date</text>
+  <path d="m773 318 5 5 5-5" fill="none" stroke="#78716C" stroke-width="1.5"/>
+  <rect x="806" y="299" width="158" height="42" rx="5" fill="#FFFFFF" stroke="#DCD5CB"/>
+  <text x="823" y="325" class="body small secondary">Service type</text>
+  <path d="m941 318 5 5 5-5" fill="none" stroke="#78716C" stroke-width="1.5"/>
+
+  <!-- Table surface -->
+  <rect x="254" y="363" width="760" height="476" rx="5" fill="#FFFFFF" stroke="#E8E2D8"/>
+  <rect x="255" y="364" width="758" height="47" fill="#F5F2EC"/>
+  <text x="273" y="393" class="body tiny semibold muted" letter-spacing=".4">TICKET</text>
+  <text x="358" y="393" class="body tiny semibold muted" letter-spacing=".4">CUSTOMER</text>
+  <text x="506" y="393" class="body tiny semibold muted" letter-spacing=".4">PEN</text>
+  <text x="681" y="393" class="body tiny semibold muted" letter-spacing=".4">DUE</text>
+  <text x="815" y="393" class="body tiny semibold muted" letter-spacing=".4">STATUS</text>
+  <path d="M254 411H1014M254 473H1014M254 535H1014M254 597H1014M254 659H1014M254 721H1014M254 783H1014" stroke="#EEE9E1"/>
+
+  <!-- Selected row -->
+  <rect x="255" y="412" width="758" height="61" fill="#FDF8EA"/>
+  <rect x="254" y="412" width="3" height="61" fill="#CA8A04"/>
+  <text x="273" y="448" class="body small semibold">PC-0421</text>
+  <text x="358" y="448" class="body small">A. Santos</text>
+  <text x="506" y="448" class="body small">Lamy Safari</text>
+  <text x="681" y="448" class="body small gold semibold">Today</text>
+  <rect x="815" y="428" width="94" height="27" rx="4" fill="#F1E7D2"/>
+  <text x="827" y="446" class="body tiny semibold gold">In service</text>
+
+  <!-- Other rows -->
+  <text x="273" y="510" class="body small semibold">PC-0420</text><text x="358" y="510" class="body small">M. Reyes</text><text x="506" y="510" class="body small">Pilot Custom 74</text><text x="681" y="510" class="body small">Nov 08</text>
+  <rect x="815" y="490" width="92" height="27" rx="4" fill="#ECEDF3"/><text x="827" y="508" class="body tiny semibold" fill="#444967">Inspecting</text>
+  <text x="273" y="572" class="body small semibold">PC-0419</text><text x="358" y="572" class="body small">R. Villanueva</text><text x="506" y="572" class="body small">TWSBI Eco</text><text x="681" y="572" class="body small" fill="#9F1239">Yesterday</text>
+  <rect x="815" y="552" width="77" height="27" rx="4" fill="#F8E7E9"/><text x="827" y="570" class="body tiny semibold" fill="#9F1239">Overdue</text>
+  <text x="273" y="634" class="body small semibold">PC-0418</text><text x="358" y="634" class="body small">J. Garcia</text><text x="506" y="634" class="body small">Kaweco Sport</text><text x="681" y="634" class="body small">Nov 09</text>
+  <rect x="815" y="614" width="73" height="27" rx="4" fill="#E7F2E8"/><text x="827" y="632" class="body tiny semibold" fill="#166534">Ready</text>
+  <text x="273" y="696" class="body small semibold">PC-0417</text><text x="358" y="696" class="body small">C. Lim</text><text x="506" y="696" class="body small">Sailor Pro Gear</text><text x="681" y="696" class="body small">Nov 10</text>
+  <rect x="815" y="676" width="77" height="27" rx="4" fill="#EFEDE9"/><text x="827" y="694" class="body tiny semibold secondary">Received</text>
+  <text x="273" y="758" class="body small semibold">PC-0416</text><text x="358" y="758" class="body small">P. Flores</text><text x="506" y="758" class="body small">Platinum 3776</text><text x="681" y="758" class="body small">Nov 11</text>
+  <rect x="815" y="738" width="94" height="27" rx="4" fill="#F1E7D2"/><text x="827" y="756" class="body tiny semibold gold">In service</text>
+  <text x="274" y="815" class="body tiny muted">Showing 6 of 28 active jobs</text>
+  <text x="935" y="815" class="body tiny secondary">1–6  ›</text>
+
+  <!-- Selected-job detail pane -->
+  <rect x="1037" y="299" width="373" height="540" rx="5" fill="#FFFDF8" stroke="#E8E2D8"/>
+  <rect x="1037" y="299" width="373" height="4" fill="#CA8A04"/>
+  <text x="1061" y="336" class="body tiny semibold gold" letter-spacing="1.1">SELECTED JOB · PC-0421</text>
+  <text x="1061" y="377" class="serif" style="font-size:23px">Lamy Safari</text>
+  <text x="1061" y="402" class="body small secondary">A. Santos  ·  due today</text>
+  <rect x="1289" y="354" width="97" height="29" rx="4" fill="#F1E7D2"/>
+  <text x="1300" y="373" class="body tiny semibold gold">In service</text>
+  <path d="M1061 424H1386" stroke="#E8E2D8"/>
+  <text x="1061" y="454" class="body tiny semibold muted" letter-spacing=".8">REQUESTED WORK</text>
+  <text x="1061" y="481" class="body mid">Deep clean + ink flush</text>
+  <text x="1061" y="506" class="body small secondary">Inspection: ink flow inconsistent</text>
+  <path d="M1061 527H1386" stroke="#E8E2D8"/>
+  <text x="1061" y="557" class="body tiny semibold muted" letter-spacing=".8">INTAKE CONDITION</text>
+  <text x="1061" y="584" class="body small secondary">Minor nib staining; cap and clip intact.</text>
+  <text x="1061" y="606" class="body small secondary">Customer requested blue ink rinse.</text>
+  <path d="M1061 628H1386" stroke="#E8E2D8"/>
+  <text x="1061" y="659" class="body tiny semibold muted" letter-spacing=".8">ESTIMATE</text>
+  <text x="1061" y="690" class="serif" style="font-size:22px">₱450.00</text>
+  <text x="1061" y="721" class="body tiny muted">Received Nov 04 · last updated Nov 06</text>
+  <rect x="1061" y="753" width="216" height="42" rx="5" fill="#1C1917"/>
+  <text x="1083" y="779" class="body small white semibold">Open job details</text>
+  <path d="m1253 774 6 0m-3-3 3 3-3 3" stroke="#FFFDF8" fill="none" stroke-width="1.6" stroke-linecap="round"/>
+  <text x="1299" y="779" class="body small gold semibold">Add note</text>
+
+  <!-- Status bar -->
+  <rect x="218" y="865" width="1222" height="35" fill="#F4F0E9"/>
+  <path d="M218 865H1440" stroke="#E8E2D8"/>
+  <circle cx="255" cy="883" r="4" fill="#166534"/>
+  <text x="267" y="888" class="body tiny secondary">Local data ready</text>
+  <text x="1272" y="888" class="body tiny muted">Pen Care Studio · concept</text>
+</svg>
