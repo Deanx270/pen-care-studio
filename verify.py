@@ -34,8 +34,9 @@ print('Detail pane sizing checks passed')
 # Primary detail actions stay visible while long notes remain scrollable.
 empty_window.resize(1024,700); q.processEvents()
 for name in ('Edit intake','Record payment','Add work note','Service summary'):
-    control=next(b for b in empty_window.detail_widget.findChildren(app.QPushButton) if b.text()==name)
+    control=next(b for b in empty_window.detail_widget.findChildren(app.QPushButton) if b.text()==name and b.isVisible())
     position=control.mapTo(empty_window.detail_scroll.viewport(),__import__('PySide6').QtCore.QPoint(0,0))
     assert position.y() >= 0 and position.y()+control.height() <= empty_window.detail_scroll.viewport().height(), name
 assert empty_window.detail_scroll.verticalScrollBar().maximum()>0
 print('Detail actions visible with long notes')
+
