@@ -40,3 +40,10 @@ python -m venv .venv
 To use an isolated developer database, run `.\.venv\Scripts\python.exe app.py --db test.sqlite3`; create its own staff password on first launch. The sign-in demo checkbox creates a separate `test-demo.sqlite3`. `--demo` requires an explicit `--db` path and seeds that database only if it contains no jobs.
 
 Run `.\.venv\Scripts\python.exe verify.py`, `verify_access.py`, and `verify_payments.py` (with the Python executable) for the automated checks. To build on Windows, install PyInstaller 6.22.0 (`.\.venv\Scripts\python.exe -m pip install PyInstaller==6.22.0`) and run `.\.venv\Scripts\python.exe -m PyInstaller --noconfirm --clean "Pen Care Studio.spec"`; copy `START_HERE.txt` into `dist\Pen Care Studio` before zipping that folder.
+
+
+## Desktop layout and design checks
+
+The interface uses larger Segoe UI body and table text, serif page titles, a warm paper workspace, and labelled status badges. The queue groups pen and customer on two lines. Below 1180 logical pixels, selected-job details use the full content width; **Back to queue** preserves the current filters. Dialog content scrolls on short displays while Save and Cancel remain reachable.
+
+Run `python verify_design.py` with the project environment to check shared header placement, count alignment, keyboard activation, compact navigation, empty-state actions, and dialog bounds. `python review_refinement.py` captures all pages with empty and fictional in-memory data in `screenshots/refinement`. Set `QT_SCALE_FACTOR` to `1.5` or `2` for additional scaling checks. These checks do not open the real database.

@@ -135,3 +135,14 @@ Aim for comfortably sized click targets, especially in table action areas, and l
 - Each screen passes the three real-task scenarios in “Avoiding generic AI-generated design”; reject duplicated metrics, decorative hero panels, and low-information cards unless they solve a documented task.
 
 This document is a design brief for the separate PySide6 implementation conversation. It should guide decisions and be revised after the first real-screen review; it is not a demand to build every optional feature in the first iteration.
+
+
+## Readability refinement — November 2026
+
+- Use 11 pt Segoe UI for body and tables, 24 pt Georgia page headings, and 42 px minimum primary control height. Table fonts are explicit because Qt item views can otherwise retain the smaller platform default under stylesheets.
+- Keep due dates and worded status badges visible by grouping pen and customer into a two-line queue column. Services remain searchable and appear in selected-job details.
+- Overview pairs actionable triage rows with recent tickets. Services use a numbered care menu with aligned prices and short descriptions. Reports separate recorded payments from claimed estimates in a ledger layout.
+- On narrow windows, selection opens a full-width workbench with Back to queue. Short screens use scrolling content rather than smaller text; dialog actions stay outside scrolling forms.
+- Preserve the existing SQLite schema and operations. The redesign changes presentation, not stored values, service prices or allowed transitions.
+
+Reference: Microsoft Windows [typography](https://learn.microsoft.com/en-us/windows/apps/design/signature-experiences/typography) and [spacing](https://learn.microsoft.com/en-us/windows/apps/design/style/spacing) guidance informed the stronger type hierarchy and grouping.

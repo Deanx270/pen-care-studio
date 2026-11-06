@@ -1,14 +1,18 @@
 import argparse, html, os, sys
 from datetime import date
 from pathlib import Path
-from PySide6.QtCore import Qt, QDate, QSortFilterProxyModel
+from PySide6.QtCore import Qt, QDate, QSortFilterProxyModel, QSize
 from PySide6.QtGui import QAction, QColor, QFont, QPalette, QStandardItem, QStandardItemModel
 from PySide6.QtWidgets import *
 from PySide6.QtPrintSupport import QPrinter, QPrintDialog
+from theme import apply_theme, nav_icon, StatusDelegate, STATUS_COLORS
 from store import Store, SERVICES, STATUSES, NEXT, ticket, money, due_label, payment_status, balance_text
 
-def title(s, size=20):
+def title(s, size=24):
     w=QLabel(s); w.setFont(QFont('Georgia',size)); w.setWordWrap(True); return w
+
+def section(s):
+    w=QLabel(s); w.setWordWrap(True); w.setObjectName('section'); return w
 
 def text(s, muted=False):
     w=QLabel(s); w.setWordWrap(True)
@@ -16,7 +20,7 @@ def text(s, muted=False):
     return w
 
 def btn(s, primary=False):
-    b=QPushButton(s); b.setMinimumHeight(36)
+    b=QPushButton(s); b.setMinimumHeight(42)
     if primary: b.setObjectName('primary')
     return b
 
@@ -35,15 +39,39 @@ def clear_layout(layout):
 def separator():
     f=QFrame(); f.setFrameShape(QFrame.HLine); f.setStyleSheet('color:#E8E2D8'); return f
 
-class LoginDialog(QDialog):
+class FeedbackLabel(QLabel):
+    def __init__(self):
+        super().__init__(''); self.setWordWrap(True); self.setObjectName('error'); self.hide()
+    def setText(self,value):
+        super().setText(value); self.setVisible(bool(value))
+
+class StudioDialog(QDialog):
+    """Keep dialog actions reachable on small, high-DPI desktops."""
+    def showEvent(self,event):
+        if not getattr(self,'_fitted',False):
+            self._fitted=True
+            if getattr(self,'scroll_contents',False):
+                outer=self.layout(); body=QWidget(); contents=QVBoxLayout(body); contents.setContentsMargins(0,0,0,0); contents.setSpacing(12); contents.setSizeConstraint(QLayout.SetMinimumSize)
+                while outer.count()>1:
+                    item=outer.takeAt(0)
+                    if item.widget(): contents.addWidget(item.widget())
+                    elif item.layout(): contents.addLayout(item.layout())
+                    else: contents.addItem(item)
+                outer.insertWidget(0,scroll(body),1)
+            available=self.screen().availableGeometry()
+            self.resize(min(self.width(),available.width()-32),min(self.height(),available.height()-48))
+        super().showEvent(event)
+
+class LoginDialog(StudioDialog):
+    scroll_contents=True
     def __init__(self, store, parent=None):
-        super().__init__(parent); self.store=store; self.setup=not store.has_password(); self.setWindowTitle('Staff access'); self.resize(460,400)
+        super().__init__(parent); self.store=store; self.setup=not store.has_password(); self.setWindowTitle('Staff access'); self.resize(520,500)
         v=QVBoxLayout(self); v.setContentsMargins(28,24,28,24); v.setSpacing(12)
         v.addWidget(title('The Saturation Point',19)); v.addWidget(text('PEN CARE STUDIO · STAFF ACCESS',True)); v.addWidget(separator())
         v.addWidget(title('Create staff password' if self.setup else 'Staff sign in',15))
         v.addWidget(text('Create one local staff password (at least 8 characters). Keep it safe; there is no automatic password recovery.' if self.setup else 'Enter the password created on this computer.',True))
-        self.error=text(''); self.error.setStyleSheet('color:#9F1239;font-weight:600'); v.addWidget(self.error)
-        form=QFormLayout(); form.setSpacing(10); self.password=QLineEdit(); self.password.setEchoMode(QLineEdit.Password); form.addRow('Password',self.password)
+        self.error=FeedbackLabel(); self.error.setStyleSheet('color:#9F1239;font-weight:600'); v.addWidget(self.error)
+        form=QFormLayout(); form.setSpacing(14); self.password=QLineEdit(); self.password.setEchoMode(QLineEdit.Password); form.addRow('Password',self.password)
         self.confirm=QLineEdit(); self.confirm.setEchoMode(QLineEdit.Password)
         if self.setup: form.addRow('Confirm password',self.confirm)
         v.addLayout(form); self.demo=QCheckBox('Open demo workspace (sample data)'); v.addWidget(self.demo); v.addWidget(text('Demo jobs are stored separately from real jobs.',True)); v.addStretch()
@@ -58,21 +86,21 @@ class LoginDialog(QDialog):
             self.accept()
         except Exception as e: self.error.setText(str(e)); self.password.setFocus()
 
-class Intake(QDialog):
+class Intake(StudioDialog):
     def __init__(self, store, parent=None, job=None):
-        super().__init__(parent); self.store=store; self.job=job; self.saved_id=None; self.setWindowTitle('Edit intake' if job else 'New intake'); self.resize(630,740)
-        v=QVBoxLayout(self); v.setContentsMargins(24,20,24,20); v.addWidget(title('Edit intake' if job else 'New intake',19)); v.addWidget(text('Update the recorded details.' if job else 'Record the pen and agreed work before it enters the queue.',True)); self.error=text(''); self.error.setStyleSheet('color:#9F1239;font-weight:600'); v.addWidget(self.error)
-        body=QWidget(); layout=QVBoxLayout(body); layout.setSpacing(12); layout.addWidget(title('Customer & pen',14)); form=QFormLayout(); form.setSpacing(10)
+        super().__init__(parent); self.store=store; self.job=job; self.saved_id=None; self.setWindowTitle('Edit intake' if job else 'New intake'); self.resize(720,800)
+        v=QVBoxLayout(self); v.setContentsMargins(24,20,24,20); v.addWidget(title('Edit intake' if job else 'New intake',19)); v.addWidget(text('Update the recorded details.' if job else 'Record the pen and agreed work before it enters the queue.',True)); self.error=FeedbackLabel(); self.error.setStyleSheet('color:#9F1239;font-weight:600'); v.addWidget(self.error)
+        body=QWidget(); layout=QVBoxLayout(body); layout.setSpacing(12); layout.addWidget(section('01   Customer & pen')); form=QFormLayout(); form.setSpacing(14)
         self.customer=QLineEdit(); self.phone=QLineEdit(); self.email=QLineEdit(); self.pen=QLineEdit(); self.pen.setPlaceholderText('e.g. Lamy Safari · fine nib')
         for name,w in [('Customer *',self.customer),('Phone (optional)',self.phone),('Email (optional)',self.email),('Pen brand and model *',self.pen)]: form.addRow(name,w)
-        self.condition=QTextEdit(); self.condition.setMaximumHeight(90); self.condition.setPlaceholderText('Visible wear, ink, missing parts, customer concerns…'); form.addRow('Condition notes',self.condition); layout.addLayout(form); layout.addWidget(separator()); layout.addWidget(title('Requested services',14)); layout.addWidget(text('Select at least one service. Starting estimates are shown below.',True))
+        self.condition=QTextEdit(); self.condition.setFixedHeight(100); self.condition.setPlaceholderText('Visible wear, ink, missing parts, customer concerns…'); form.addRow('Condition notes',self.condition); layout.addLayout(form); layout.addWidget(separator()); layout.addWidget(section('02   Requested services')); layout.addWidget(text('Select at least one service. Starting estimates are shown below.',True))
         self.checks=[]
         for name,price in SERVICES:
             c=QCheckBox(f'{name}  ·  {money(price)}'); c.stateChanged.connect(self.calculate); layout.addWidget(c); self.checks.append((c,name,price))
-        layout.addWidget(separator()); layout.addWidget(title('Handover',14)); f=QFormLayout(); self.estimate=QDoubleSpinBox(); self.estimate.setRange(0,1000000); self.estimate.setPrefix('₱ '); self.estimate.setDecimals(2); f.addRow('Estimate',self.estimate)
+        layout.addWidget(separator()); layout.addWidget(section('03   Estimate & handover')); f=QFormLayout(); self.estimate=QDoubleSpinBox(); self.estimate.setRange(0,1000000); self.estimate.setPrefix('₱ '); self.estimate.setDecimals(2); f.addRow('Estimate',self.estimate)
         self.has_due=QCheckBox('Set a promised date'); self.due=QDateEdit(QDate.currentDate().addDays(7)); self.due.setCalendarPopup(True); self.due.setDisplayFormat('dd MMM yyyy'); self.due.setEnabled(False); self.has_due.toggled.connect(self.due.setEnabled)
         row=QWidget(); h=QHBoxLayout(row); h.setContentsMargins(0,0,0,0); h.addWidget(self.has_due); h.addWidget(self.due); h.addStretch(); f.addRow('Due date',row); layout.addLayout(f); layout.addStretch(); v.addWidget(scroll(body),1)
-        controls=QDialogButtonBox(QDialogButtonBox.Save|QDialogButtonBox.Cancel); controls.accepted.connect(self.save); controls.rejected.connect(self.reject); v.addWidget(controls)
+        controls=QDialogButtonBox(QDialogButtonBox.Save|QDialogButtonBox.Cancel); controls.button(QDialogButtonBox.Save).setObjectName('primary'); controls.accepted.connect(self.save); controls.rejected.connect(self.reject); v.addWidget(controls)
         if job:
             self.customer.setText(job['customer']); self.phone.setText(job['phone'] or ''); self.email.setText(job['email'] or ''); self.pen.setText(job['pen']); self.condition.setPlainText(job['condition'] or '')
             selected=[part.strip() for part in job['services'].split(',') if part.strip()]
@@ -96,14 +124,16 @@ class Intake(QDialog):
             self.accept()
         except Exception as e: self.error.setText(f'Could not save intake: {e}')
 
-class PaymentDialog(QDialog):
+class PaymentDialog(StudioDialog):
+    scroll_contents=True
     def __init__(self, store, job, parent=None):
-        super().__init__(parent); self.store=store; self.job=job; self.setWindowTitle('Record payment'); self.resize(460,360)
+        super().__init__(parent); self.store=store; self.job=job; self.setWindowTitle('Record payment'); self.resize(560,550)
         v=QVBoxLayout(self); v.setContentsMargins(24,20,24,20); v.addWidget(title('Record payment',19)); v.addWidget(text(f"{ticket(job['id'])} · {job['customer']}",True))
-        self.error=text(''); self.error.setStyleSheet('color:#9F1239;font-weight:600'); v.addWidget(self.error)
+        paid=store.paid_centavos(job['id']); account=text(f"Estimate  {money(job['estimate'])}   ·   Paid  {money(paid/100)}\n{balance_text(job,paid)}"); account.setObjectName('reportTotal'); v.addWidget(account)
+        self.error=FeedbackLabel(); self.error.setStyleSheet('color:#9F1239;font-weight:600'); v.addWidget(self.error)
         form=QFormLayout(); form.setSpacing(12); self.amount=QDoubleSpinBox(); self.amount.setPrefix('₱ '); self.amount.setDecimals(2); self.amount.setRange(0,1000000); self.method=QComboBox(); self.method.addItems(['Cash','Bank transfer','E-wallet','Card','Other']); self.received=QDateEdit(QDate.currentDate()); self.received.setCalendarPopup(True); self.received.setDisplayFormat('dd MMM yyyy'); self.note=QLineEdit()
         form.addRow('Amount received *',self.amount); form.addRow('Method *',self.method); form.addRow('Date received *',self.received); form.addRow('Note (optional)',self.note); v.addLayout(form); v.addWidget(text('Payments are separate from the estimate and cannot be edited or removed after saving.',True)); v.addStretch()
-        controls=QDialogButtonBox(QDialogButtonBox.Save|QDialogButtonBox.Cancel); controls.accepted.connect(self.save); controls.rejected.connect(self.reject); v.addWidget(controls)
+        controls=QDialogButtonBox(QDialogButtonBox.Save|QDialogButtonBox.Cancel); controls.button(QDialogButtonBox.Save).setObjectName('primary'); controls.accepted.connect(self.save); controls.rejected.connect(self.reject); v.addWidget(controls)
     def save(self):
         try:
             self.store.record_payment(self.job['id'],self.amount.value(),self.method.currentText(),self.received.date().toString('yyyy-MM-dd'),self.note.text()); self.accept()
@@ -133,14 +163,14 @@ class Proxy(QSortFilterProxyModel):
 
 class Main(QMainWindow):
     def __init__(self,store):
-        super().__init__(); self.store=store; self.selected=None; self.setWindowTitle('The Saturation Point — Pen Care Studio'); self.resize(1280,800); self.setMinimumSize(800,600)
+        super().__init__(); self.store=store; self.selected=None; self.setWindowTitle('The Saturation Point — Pen Care Studio'); self.resize(1280,800); self.setMinimumSize(780,440)
         root=QWidget(); self.setCentralWidget(root); shell=QHBoxLayout(root); shell.setContentsMargins(0,0,0,0); shell.setSpacing(0)
-        rail=QFrame(); rail.setObjectName('rail'); rail.setFixedWidth(180); rv=QVBoxLayout(rail); rv.setContentsMargins(20,24,16,20); rv.setSpacing(6)
-        brand=QLabel('The Saturation\nPoint'); brand.setObjectName('brand'); brand.setFont(QFont('Georgia',16)); rv.addWidget(brand); cap=QLabel('PEN CARE STUDIO'); cap.setObjectName('railCaption'); rv.addWidget(cap); rv.addSpacing(24)
+        rail=QFrame(); rail.setObjectName('rail'); rail.setFixedWidth(212); rv=QVBoxLayout(rail); rv.setContentsMargins(20,24,16,20); rv.setSpacing(6)
+        brand=QLabel('The Saturation\nPoint'); brand.setObjectName('brand'); brand.setFont(QFont('Georgia',18)); rv.addWidget(brand); cap=QLabel('PEN CARE STUDIO'); cap.setObjectName('railCaption'); rv.addWidget(cap); rv.addSpacing(24)
         self.nav={}
         for n in ('Overview','Jobs','Customers','Services','Reports'):
-            b=QPushButton(n); b.setObjectName('nav'); b.setCheckable(True); b.clicked.connect(lambda checked=False,name=n:self.show_page(name)); rv.addWidget(b); self.nav[n]=b
-        rv.addStretch(); foot=QLabel('LOCAL SERVICE DESK\nOffline workspace'); foot.setObjectName('railCaption'); rv.addWidget(foot); shell.addWidget(rail)
+            b=QPushButton(n); b.setObjectName('nav'); b.setIcon(nav_icon(n)); b.setIconSize(QSize(24,24)); b.setMinimumHeight(48); b.setCheckable(True); b.clicked.connect(lambda checked=False,name=n:self.show_page(name)); rv.addWidget(b); self.nav[n]=b
+        rv.addStretch(); foot=QLabel('LOCAL WORKSPACE\nCtrl+N  New intake\nCtrl+F   Find a job'); self.rail_footer=foot; foot.setObjectName('railCaption'); rv.addWidget(foot); shell.addWidget(rail)
         self.pages=QStackedWidget(); shell.addWidget(self.pages,1); self.pages.addWidget(self.make_overview()); self.pages.addWidget(self.make_jobs())
         for n in ('Customers','Services','Reports'):
             self.pages.addWidget(self.make_reference_page(n))
@@ -149,9 +179,18 @@ class Main(QMainWindow):
             a=QAction(self); a.setShortcut(key); a.triggered.connect(cb); self.addAction(a)
         self.refresh(); self.show_page('Overview')
     def header(self,name,description):
-        h=QHBoxLayout(); v=QVBoxLayout(); v.addWidget(title(name)); v.addWidget(text(description,True)); h.addLayout(v,1); b=btn('+  New intake',True); b.clicked.connect(self.intake); h.addWidget(b,0,Qt.AlignTop); return h
+        h=QHBoxLayout(); h.setSpacing(24); v=QVBoxLayout(); v.setSpacing(6); v.addWidget(title(name)); v.addWidget(text(description,True)); h.addLayout(v,1); b=btn('+  New intake',True); b.clicked.connect(self.intake); h.addWidget(b,0,Qt.AlignTop); return h
     def make_overview(self):
-        page=QWidget(); v=QVBoxLayout(page); v.setContentsMargins(32,28,32,24); v.setSpacing(18); v.addLayout(self.header('Workshop overview','A clear view of what needs attention.')); v.addWidget(separator()); v.addWidget(title('Today at the desk',15)); v.addWidget(text('Open a list to take the next action.',True)); self.triage=QVBoxLayout(); self.triage.setSpacing(0); v.addLayout(self.triage); v.addSpacing(8); v.addWidget(title('Recently updated',15)); self.recent=QListWidget(); self.recent.setObjectName('recent'); self.recent.itemActivated.connect(self.open_recent); self.recent.setMaximumHeight(240); v.addWidget(self.recent); v.addStretch(); return page
+        page=QWidget(); v=QVBoxLayout(page); v.setContentsMargins(32,28,32,24); v.setSpacing(20)
+        v.addLayout(self.header('Workshop overview','The service desk, from first inspection to pickup.')); v.addWidget(separator())
+        body=QWidget(); columns=QHBoxLayout(body); columns.setContentsMargins(0,0,0,0); columns.setSpacing(24)
+        left=QWidget(); l=QVBoxLayout(left); l.setContentsMargins(0,0,0,0); l.setSpacing(12)
+        l.addWidget(section('Today at the desk')); l.addWidget(text('Choose the work that needs attention.',True))
+        panel=QFrame(); panel.setObjectName('surface'); self.triage=QVBoxLayout(panel); self.triage.setContentsMargins(16,8,16,8); self.triage.setSpacing(0); l.addWidget(panel); l.addStretch()
+        right=QWidget(); r=QVBoxLayout(right); r.setContentsMargins(0,0,0,0); r.setSpacing(12)
+        r.addWidget(section('Recently updated')); r.addWidget(text('Open a ticket to continue its care.',True))
+        self.recent=QListWidget(); self.recent.setObjectName('recent'); self.recent.itemActivated.connect(self.open_recent); self.recent.itemClicked.connect(self.open_recent); self.recent.setMinimumHeight(420); self.recent.setMaximumHeight(480); r.addWidget(self.recent); r.addStretch()
+        columns.addWidget(left,4); columns.addWidget(right,6); v.addWidget(scroll(body),1); return page
     def open_recent(self,item):
         jid=item.data(Qt.UserRole)
         if jid: self.filter_to(); self.select_id(jid)
@@ -159,27 +198,38 @@ class Main(QMainWindow):
         page=QWidget(); v=QVBoxLayout(page); v.setContentsMargins(32,28,32,24); v.setSpacing(12); v.addLayout(self.header('Care jobs','Find a ticket, review its work, and move it toward pickup.')); self.summary=text('',True); v.addWidget(self.summary); v.addWidget(separator())
         filters=QHBoxLayout(); self.search=QLineEdit(); self.search.setPlaceholderText('Search ticket, customer, pen or service'); self.search.setClearButtonEnabled(True); self.search.textChanged.connect(self.apply_filters); filters.addWidget(self.search,1)
         self.status_filter=QComboBox(); self.status_filter.addItems(['All statuses']+STATUSES); self.status_filter.currentTextChanged.connect(self.apply_filters); filters.addWidget(self.status_filter); self.due_filter=QComboBox(); self.due_filter.addItems(['Any due date','Due today','Overdue']); self.due_filter.currentTextChanged.connect(self.apply_filters); filters.addWidget(self.due_filter); v.addLayout(filters)
-        self.split=QSplitter(); self.split.setChildrenCollapsible(False); v.addWidget(self.split,1); left=QWidget(); lv=QVBoxLayout(left); lv.setContentsMargins(0,0,0,0)
-        self.table=QTableView(); self.model=QStandardItemModel(0,6); self.model.setHorizontalHeaderLabels(['Ticket','Customer','Pen','Service','Due','Status']); self.proxy=Proxy(); self.proxy.setSourceModel(self.model); self.table.setModel(self.proxy); self.table.setSelectionBehavior(QAbstractItemView.SelectRows); self.table.setSelectionMode(QAbstractItemView.SingleSelection); self.table.setEditTriggers(QAbstractItemView.NoEditTriggers); self.table.verticalHeader().hide(); self.table.verticalHeader().setDefaultSectionSize(44); self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive); self.table.horizontalHeader().setStretchLastSection(True); self.table.setSortingEnabled(True); self.table.selectionModel().selectionChanged.connect(self.selection_changed)
-        for i,w in enumerate([80,120,145,125,115,95]): self.table.setColumnWidth(i,w)
-        lv.addWidget(self.table); self.empty=text(''); self.empty.setObjectName('emptyState'); lv.addWidget(self.empty); self.split.addWidget(left); self.detail_widget=QWidget(); self.detail=QVBoxLayout(self.detail_widget); self.detail.setContentsMargins(18,10,8,10); self.detail.setSpacing(10); self.detail.setSizeConstraint(QLayout.SetMinimumSize); self.detail_scroll=scroll(self.detail_widget); self.detail_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn); self.detail_scroll.setMinimumWidth(250); self.split.addWidget(self.detail_scroll); self.split.setSizes([760,330]); return page
+        self.split=QSplitter(); self.split.setChildrenCollapsible(False); v.addWidget(self.split,1); left=QWidget(); self.queue_widget=left; lv=QVBoxLayout(left); lv.setContentsMargins(0,0,0,0)
+        self.table=QTableView(); self.model=QStandardItemModel(0,6); self.model.setHorizontalHeaderLabels(['Ticket','Customer','Pen / Customer','Service','Due','Status']); self.proxy=Proxy(); self.proxy.setSourceModel(self.model); self.table.setModel(self.proxy); self.table.setSelectionBehavior(QAbstractItemView.SelectRows); self.table.setSelectionMode(QAbstractItemView.SingleSelection); self.table.setEditTriggers(QAbstractItemView.NoEditTriggers); self.table.verticalHeader().hide(); self.table.verticalHeader().setDefaultSectionSize(76); self.table.setShowGrid(False); self.table.setAlternatingRowColors(True); self.table.setWordWrap(False); self.table.setItemDelegateForColumn(5,StatusDelegate(self.table)); self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive); self.table.horizontalHeader().setStretchLastSection(True); self.table.setSortingEnabled(True); self.table.selectionModel().selectionChanged.connect(self.selection_changed)
+        for i,w in enumerate([94,145,165,165,132,124]): self.table.setColumnWidth(i,w)
+        self.table.hideColumn(1); self.table.hideColumn(3); self.table.horizontalHeader().setSectionResizeMode(2,QHeaderView.Stretch); self.table.setColumnWidth(0,88); self.table.setColumnWidth(4,132); self.table.setColumnWidth(5,124); self.table.horizontalHeader().setDefaultAlignment(Qt.AlignLeft|Qt.AlignVCenter)
+        lv.addWidget(self.table); self.queue_empty=QFrame(); self.queue_empty.setObjectName('surface'); ev=QVBoxLayout(self.queue_empty); ev.setContentsMargins(32,32,32,32); ev.setSpacing(16); ev.addStretch(); self.empty_heading=title('Ready for your first pen',20); ev.addWidget(self.empty_heading); self.empty_message=text(''); ev.addWidget(self.empty_message); self.empty_action=btn('New intake',True); self.empty_action.clicked.connect(self.empty_queue_action); ev.addWidget(self.empty_action,0,Qt.AlignLeft); ev.addStretch(); lv.addWidget(self.queue_empty,1); self.empty=text(''); self.empty.setObjectName('queueCaption'); lv.addWidget(self.empty); self.split.addWidget(left); self.detail_widget=QWidget(); self.detail_widget.setObjectName('detailBody'); self.detail=QVBoxLayout(self.detail_widget); self.detail.setContentsMargins(20,18,16,18); self.detail.setSpacing(10); self.detail.setSizeConstraint(QLayout.SetMinimumSize); self.detail_scroll=scroll(self.detail_widget); self.detail_scroll.setObjectName('detailPane'); self.split.setHandleWidth(8); self.detail_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn); self.detail_scroll.setMinimumWidth(360); self.split.addWidget(self.detail_scroll); self.split.setSizes([660,380]); return page
     def make_reference_page(self, name):
         page=QWidget(); v=QVBoxLayout(page); v.setContentsMargins(32,28,32,24); v.setSpacing(16)
         descriptions={'Customers':'People and their recorded care jobs.','Services':'Starting estimates for workshop services.','Reports':'A local snapshot of completed and active work.'}
         v.addLayout(self.header(name,descriptions[name])); v.addWidget(separator())
         if name=='Customers':
             search=QLineEdit(); search.setPlaceholderText('Search customer or contact'); search.setClearButtonEnabled(True); search.textChanged.connect(self.filter_customers); v.addWidget(search); self.customer_search=search
-            self.customer_table=QTableWidget(0,4); self.customer_table.setHorizontalHeaderLabels(['Customer','Contact','Jobs','Most recent pen']); self.customer_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch); self.customer_table.verticalHeader().hide(); self.customer_table.verticalHeader().setDefaultSectionSize(48); self.customer_table.setSelectionBehavior(QAbstractItemView.SelectRows); self.customer_table.setEditTriggers(QAbstractItemView.NoEditTriggers); self.customer_table.cellDoubleClicked.connect(self.open_customer); v.addWidget(self.customer_table,1)
+            self.customer_table=QTableWidget(0,4); self.customer_table.setHorizontalHeaderLabels(['Customer','Contact','Jobs','Most recent pen']); self.customer_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch); self.customer_table.verticalHeader().hide(); self.customer_table.verticalHeader().setDefaultSectionSize(64); self.customer_table.horizontalHeader().setDefaultAlignment(Qt.AlignLeft|Qt.AlignVCenter); self.customer_table.setShowGrid(False); self.customer_table.setAlternatingRowColors(True); self.customer_table.setSelectionBehavior(QAbstractItemView.SelectRows); self.customer_table.setEditTriggers(QAbstractItemView.NoEditTriggers); self.customer_table.cellDoubleClicked.connect(self.open_customer); v.addWidget(self.customer_table,1)
             self.customer_hint=text('Select a customer and use Open jobs to see their tickets.',True); v.addWidget(self.customer_hint); open_button=btn('Open customer jobs'); open_button.clicked.connect(self.open_customer); v.addWidget(open_button,0,Qt.AlignLeft)
         elif name=='Services':
-            v.addWidget(title('Workshop menu',15)); v.addWidget(text('Choose one or more services during intake. Estimates can be adjusted.',True))
-            table=QTableWidget(len(SERVICES),2); table.setHorizontalHeaderLabels(['SERVICE','STARTING ESTIMATE']); table.horizontalHeader().setSectionResizeMode(0,QHeaderView.Stretch); table.horizontalHeader().setSectionResizeMode(1,QHeaderView.ResizeToContents); table.verticalHeader().hide(); table.verticalHeader().setDefaultSectionSize(56); table.setEditTriggers(QAbstractItemView.NoEditTriggers); table.setSelectionMode(QAbstractItemView.NoSelection)
-            for row,(name_,price) in enumerate(SERVICES):
-                table.setItem(row,0,QTableWidgetItem(name_)); item=QTableWidgetItem(money(price)); item.setTextAlignment(Qt.AlignRight|Qt.AlignVCenter); table.setItem(row,1,item)
-            table.setMaximumHeight(340); v.addWidget(table); v.addStretch()
+            v.addWidget(section('Care & maintenance'))
+            catalog=QFrame(); catalog.setObjectName('surface'); rows=QVBoxLayout(catalog); rows.setContentsMargins(24,12,24,12); rows.setSpacing(0)
+            descriptions=['Remove old ink from the pen and feed.','A more thorough cleaning for persistent ink residue.','Inspect the nib for visible condition and alignment.','Assess ink delivery, hard starts and inconsistent flow.','Review the pen and its routine care needs.']
+            for index,((service,price),description) in enumerate(zip(SERVICES,descriptions),1):
+                row=QHBoxLayout(); row.setContentsMargins(0,16,0,16); row.setSpacing(20)
+                number=text(f'{index:02}'); number.setObjectName('eyebrow'); number.setFixedWidth(32); row.addWidget(number)
+                labels=QVBoxLayout(); labels.setSpacing(5); labels.addWidget(section(service)); labels.addWidget(text(description,True)); row.addLayout(labels,1)
+                amount=section(money(price)); amount.setMinimumWidth(120); amount.setAlignment(Qt.AlignRight|Qt.AlignVCenter); row.addWidget(amount); rows.addLayout(row)
+                if index<len(SERVICES): rows.addWidget(separator())
+            v.addWidget(scroll(catalog),1); v.addWidget(text('Starting estimates only. Select services and agree the estimate during intake.',True))
         else:
-            v.addWidget(title('Job status',15)); self.report_table=QTableWidget(0,2); self.report_table.setHorizontalHeaderLabels(['STATUS','JOBS']); self.report_table.horizontalHeader().setSectionResizeMode(0,QHeaderView.Stretch); self.report_table.horizontalHeader().setSectionResizeMode(1,QHeaderView.ResizeToContents); self.report_table.verticalHeader().hide(); self.report_table.verticalHeader().setDefaultSectionSize(42); self.report_table.setEditTriggers(QAbstractItemView.NoEditTriggers); self.report_table.setSelectionMode(QAbstractItemView.NoSelection); self.report_table.setFixedHeight(300); v.addWidget(self.report_table)
-            self.report_total=text(''); self.report_total.setObjectName('reportTotal'); v.addWidget(self.report_total); self.report_payments=text(''); self.report_payments.setObjectName('reportTotal'); v.addWidget(self.report_payments); v.addWidget(text('Estimates are not invoices. Payments include all jobs, including cancelled jobs; no refunds are recorded.',True)); v.addStretch()
+            content=QWidget(); columns=QHBoxLayout(content); columns.setContentsMargins(0,0,0,0); columns.setSpacing(24)
+            left=QVBoxLayout(); left.addWidget(section('Jobs by status'))
+            self.report_table=QTableWidget(0,2); self.report_table.setHorizontalHeaderLabels(['Status','Jobs']); self.report_table.horizontalHeader().setSectionResizeMode(0,QHeaderView.Stretch); self.report_table.horizontalHeader().setSectionResizeMode(1,QHeaderView.ResizeToContents); self.report_table.verticalHeader().hide(); self.report_table.verticalHeader().setDefaultSectionSize(56); self.report_table.horizontalHeader().setDefaultAlignment(Qt.AlignLeft|Qt.AlignVCenter); self.report_table.setShowGrid(False); self.report_table.setItemDelegateForColumn(0,StatusDelegate(self.report_table)); self.report_table.setEditTriggers(QAbstractItemView.NoEditTriggers); self.report_table.setSelectionMode(QAbstractItemView.NoSelection); left.addWidget(self.report_table,1); columns.addLayout(left,1)
+            right=QFrame(); right.setObjectName('surface'); ledger=QVBoxLayout(right); ledger.setContentsMargins(24,24,24,24); ledger.setSpacing(16)
+            ledger.addWidget(section('Workshop ledger')); ledger.addWidget(text('Actual payments',True)); self.report_payments=text(''); self.report_payments.setObjectName('money'); ledger.addWidget(self.report_payments)
+            ledger.addWidget(text('Recorded across all jobs.',True)); ledger.addWidget(separator()); ledger.addWidget(text('Claimed job estimates',True)); self.report_total=text(''); self.report_total.setObjectName('money'); ledger.addWidget(self.report_total); ledger.addWidget(text('Agreed estimates for pens already picked up.',True)); ledger.addStretch(); ledger.addWidget(separator()); ledger.addWidget(text('Estimates are not invoices. Payments include cancelled jobs; no refunds are recorded.',True)); columns.addWidget(right,1)
+            v.addWidget(scroll(content),1)
         return page
     def filter_customers(self, *args):
         query=self.customer_search.text().strip().lower()
@@ -200,12 +250,19 @@ class Main(QMainWindow):
             self.refresh(); self.show_page('Jobs'); self.search.clear(); self.status_filter.setCurrentIndex(0); self.due_filter.setCurrentIndex(0); self.select_id(d.saved_id); self.statusBar().showMessage(f'{ticket(d.saved_id)} saved',8000)
     def apply_filters(self,*args):
         self.proxy.query=self.search.text().strip().lower(); self.proxy.status=self.status_filter.currentText(); self.proxy.due=self.due_filter.currentText(); self.proxy.invalidateFilter(); self.update_empty()
+    def empty_queue_action(self):
+        if not self.model.rowCount(): self.intake()
+        else: self.filter_to()
     def update_empty(self):
-        n=self.proxy.rowCount(); total=self.model.rowCount(); self.table.setVisible(bool(n)); self.empty.setObjectName('queueCaption' if n else 'emptyState'); self.empty.style().unpolish(self.empty); self.empty.style().polish(self.empty); self.empty.setText(f'{n} of {total} jobs · Select a column heading to sort' if n else ('No jobs yet. Choose New intake to create the first ticket.' if not total else 'No matching jobs. Clear the search or filters to see the queue.'))
+        n=self.proxy.rowCount(); total=self.model.rowCount(); self.table.setVisible(bool(n)); self.queue_empty.setVisible(not n); self.empty.setVisible(bool(n))
+        self.empty.setText(f'{n} of {total} jobs · Select a column heading to sort')
+        self.empty_heading.setText('No matching jobs' if total else 'Ready for your first pen')
+        self.empty_message.setText('Clear the search and filters to return to the full queue.' if total else 'Record the customer, pen condition and agreed care to open the first ticket.')
+        self.empty_action.setText('Clear filters' if total else '+  New intake')
     def refresh(self):
         selected=self.selected; jobs=self.store.all(); self.model.removeRows(0,self.model.rowCount()); today=date.today().isoformat(); self.table.setSortingEnabled(False)
         for j in sorted(jobs,key=lambda x:(x['status'] in ('Ready','Claimed','Cancelled'),x['due'] is None,x['due'] or '9999',-x['id'])):
-            values=[ticket(j['id']),j['customer'],j['pen'],j['services'],due_label(j),j['status']]; sorts=[j['id'],j['customer'].lower(),j['pen'].lower(),j['services'].lower(),j['due'] or '9999',j['status']]; items=[]
+            values=[ticket(j['id']),j['customer'],j['pen']+'\n'+j['customer'],j['services'],due_label(j).replace(' · ','\n'),j['status']]; sorts=[j['id'],j['customer'].lower(),j['pen'].lower(),j['services'].lower(),j['due'] or '9999',j['status']]; items=[]
             for i,value in enumerate(values):
                 item=QStandardItem(str(value)); item.setToolTip(str(value)); item.setData(dict(j),Qt.UserRole); item.setData(sorts[i],Qt.UserRole+1)
                 if i==4 and j['due'] and j['due']<today and j['status'] not in ('Ready','Claimed','Cancelled'): item.setForeground(QColor('#9F1239'))
@@ -224,11 +281,14 @@ class Main(QMainWindow):
         rows=self.table.selectionModel().selectedRows(); self.selected=rows[0].data(Qt.UserRole)['id'] if rows else None; self.render_detail()
     def render_detail(self):
         clear_layout(self.detail)
+        self.update_queue_layout()
+        if self.width()<1180 and self.selected:
+            back=btn('←  Back to queue'); back.clicked.connect(self.back_to_queue); self.detail.addWidget(back)
         if not self.selected:
             self.detail.addWidget(text('JOB DETAILS',True)); self.detail.addWidget(title('Your workbench',16)); self.detail.addWidget(text('Select a job in the queue to review its condition, work and next step.',True)); self.detail.addStretch(); return
         j=self.store.get(self.selected)
         if not j: return
-        self.detail.addWidget(text(f'SELECTED JOB  ·  {ticket(j["id"])}',True)); self.detail.addWidget(title(j['pen'],16)); self.detail.addWidget(text(j['customer'])); status=text(j['status']); status.setObjectName('statusBadge'); self.detail.addWidget(status,0,Qt.AlignLeft); self.detail.addWidget(text(f'Due: {due_label(j)}',True));
+        self.detail.addWidget(text(f'SELECTED JOB  ·  {ticket(j["id"])}',True)); self.detail.addWidget(title(j['pen'],16)); self.detail.addWidget(text(j['customer'])); status=text(j['status']); bg,fg=STATUS_COLORS[j['status']]; status.setStyleSheet(f'background:{bg};color:{fg};padding:6px 12px;border-radius:4px;font-weight:600;'); self.detail.addWidget(status,0,Qt.AlignLeft); self.detail.addWidget(text(f'Due: {due_label(j)}',True));
         if j['status'] in NEXT:
             b=btn('Mark '+NEXT[j['status']].lower(),True); b.clicked.connect(self.advance); self.detail.addWidget(b)
         actions=QHBoxLayout(); edit=btn('Edit intake'); edit.clicked.connect(self.edit_intake); actions.addWidget(edit)
@@ -237,13 +297,27 @@ class Main(QMainWindow):
         self.detail.addLayout(actions)
         h=QHBoxLayout(); note=btn('Add work note'); note.clicked.connect(self.add_note); h.addWidget(note); receipt=btn('Service summary'); receipt.clicked.connect(self.receipt); h.addWidget(receipt); self.detail.addLayout(h)
         self.detail.addWidget(separator())
-        for name,value in [('REQUESTED WORK',j['services']),('INTAKE CONDITION',j['condition'] or 'No condition notes recorded.'),('ESTIMATE',money(j['estimate'])),('PAYMENT',f"{payment_status(j,self.store.paid_centavos(j['id']))} · {money(self.store.paid_centavos(j['id'])/100)} recorded · {balance_text(j,self.store.paid_centavos(j['id']))}"),('CONTACT',' · '.join(filter(None,[j['phone'],j['email']])) or 'No contact details recorded.')]: self.detail.addWidget(text(name,True)); self.detail.addWidget(text(value))
+        for name,value in [('REQUESTED WORK',j['services']),('INTAKE CONDITION',j['condition'] or 'No condition notes recorded.'),('ESTIMATE',money(j['estimate'])),('PAYMENT',f"{payment_status(j,self.store.paid_centavos(j['id']))} · {money(self.store.paid_centavos(j['id'])/100)} recorded · {balance_text(j,self.store.paid_centavos(j['id']))}"),('CONTACT',' · '.join(filter(None,[j['phone'],j['email']])) or 'No contact details recorded.')]: label=text(name,True); label.setObjectName('fieldLabel'); self.detail.addWidget(label); self.detail.addWidget(text(value))
         self.detail.addWidget(separator())
         if j['status'] not in ('Claimed','Cancelled'):
             cancel=btn('Cancel job…'); cancel.clicked.connect(self.cancel); self.detail.addWidget(cancel)
         self.detail.addWidget(separator()); self.detail.addWidget(text('ACTIVITY',True))
-        for a in self.store.history(j['id']): self.detail.addWidget(text(f'{a["at"].replace("T"," ")}\n{a["message"]}'))
+        for a in self.store.history(j['id']):
+            entry=text(f'{a["at"].replace("T"," ")}\n{a["message"]}'); entry.setObjectName('history'); self.detail.addWidget(entry)
         self.detail.addStretch()
+    def update_queue_layout(self):
+        compact=self.width()<1180
+        self.queue_widget.setVisible(not compact or not self.selected)
+        self.detail_scroll.setVisible(not compact or bool(self.selected))
+    def back_to_queue(self):
+        self.table.clearSelection(); self.selected=None; self.render_detail()
+    def resizeEvent(self,event):
+        super().resizeEvent(event)
+        if hasattr(self,'rail_footer'): self.rail_footer.setVisible(self.height()>=600)
+        if hasattr(self,'queue_widget'):
+            compact=self.width()<1180
+            if compact!=getattr(self,'_compact',None):
+                self._compact=compact; self.render_detail()
     def edit_intake(self):
         j=self.store.get(self.selected); d=Intake(self.store,self,job=j)
         if d.exec(): self.refresh(); self.statusBar().showMessage(f"{ticket(j['id'])} updated",6000)
@@ -264,7 +338,7 @@ class Main(QMainWindow):
             self.store.note(self.selected,value); self.refresh(); self.statusBar().showMessage('Work note saved',5000)
     def receipt(self):
         j=self.store.get(self.selected); content=summary_html(self.store,j)
-        d=QDialog(self); d.setWindowTitle('Service summary'); d.resize(560,650); v=QVBoxLayout(d); view=QTextBrowser(); view.setHtml(content); v.addWidget(view); h=QHBoxLayout(); h.addStretch(); p=btn('Print…',True); h.addWidget(p); close=btn('Close'); close.clicked.connect(d.accept); h.addWidget(close); v.addLayout(h)
+        d=StudioDialog(self); d.setWindowTitle('Service summary'); d.resize(680,760); v=QVBoxLayout(d); view=QTextBrowser(); view.setHtml(content); v.addWidget(view); h=QHBoxLayout(); h.addStretch(); p=btn('Print…',True); h.addWidget(p); close=btn('Close'); close.clicked.connect(d.accept); h.addWidget(close); v.addLayout(h)
         def do_print():
             printer=QPrinter(); dialog=QPrintDialog(printer,d)
             if dialog.exec(): view.print_(printer)
@@ -276,15 +350,15 @@ class Main(QMainWindow):
         entries=[('Due today',sum(j['due']==today for j in active),lambda:self.filter_to(due='Due today')),('Overdue',sum(bool(j['due'] and j['due']<today) for j in active),lambda:self.filter_to(due='Overdue')),('Ready for pickup',sum(j['status']=='Ready' for j in jobs),lambda:self.filter_to(status='Ready')),('All jobs',len(jobs),lambda:self.filter_to())]
         self.recent.clear()
         for j in sorted(jobs,key=lambda x:(x['updated'],x['id']),reverse=True)[:5]:
-            item=QListWidgetItem(f"{ticket(j['id'])}    ·    {j['pen']}    /    {j['customer']}    ·    {j['status']}"); item.setData(Qt.UserRole,j['id']); self.recent.addItem(item)
+            item=QListWidgetItem(f"{ticket(j['id'])}  ·  {j['pen']}\n{j['customer']}  ·  {j['status']}"); item.setData(Qt.UserRole,j['id']); self.recent.addItem(item)
         if not jobs: self.recent.addItem('No jobs yet. Use New intake to register the first pen.')
         clear_layout(self.triage)
         for name,count,callback in entries:
             b=btn(''); b.setObjectName('triage'); b.setAccessibleName(f'{name}: {count}'); b.clicked.connect(callback)
-            row=QHBoxLayout(b); row.setContentsMargins(8,0,8,0); row.setSpacing(16)
-            name_label=QLabel(name); count_label=QLabel(str(count)); count_label.setFixedWidth(64); count_label.setAlignment(Qt.AlignRight|Qt.AlignVCenter); arrow=QLabel('→'); arrow.setFixedWidth(20); arrow.setAlignment(Qt.AlignCenter)
+            row=QHBoxLayout(b); b.setFixedHeight(84); row.setContentsMargins(4,16,4,16); row.setSpacing(16)
+            name_label=QLabel(name); count_label=QLabel(str(count)); count_label.setFont(QFont('Segoe UI',20,QFont.DemiBold)); count_label.setFixedWidth(64); count_label.setAlignment(Qt.AlignRight|Qt.AlignVCenter); arrow=QLabel('→'); arrow.setFixedWidth(20); arrow.setAlignment(Qt.AlignCenter)
             for child in (name_label,count_label,arrow): child.setAttribute(Qt.WA_TransparentForMouseEvents)
-            row.addWidget(name_label,1); row.addWidget(count_label); row.addWidget(arrow); self.triage.addWidget(b)
+            name_label.setFont(QFont('Segoe UI',12)); row.addWidget(name_label,1); row.addWidget(count_label); row.addWidget(arrow); self.triage.addWidget(b)
         customers={}
         for j in jobs: customers.setdefault(j['customer'],[]).append(j)
         self.customer_table.setRowCount(0)
@@ -296,12 +370,11 @@ class Main(QMainWindow):
         self.report_table.setRowCount(len(STATUSES))
         for row,status in enumerate(STATUSES):
             self.report_table.setItem(row,0,QTableWidgetItem(status)); item=QTableWidgetItem(str(sum(j['status']==status for j in jobs))); item.setTextAlignment(Qt.AlignRight|Qt.AlignVCenter); self.report_table.setItem(row,1,item)
-        claimed=[j for j in jobs if j['status']=='Claimed']; self.report_total.setText(f"CLAIMED JOB ESTIMATES     {money(sum(j['estimate'] for j in claimed))}"); self.report_payments.setText(f"PAYMENTS RECORDED · ALL JOBS     {money(sum(self.store.paid_centavos(j['id']) for j in jobs)/100)}")
+        claimed=[j for j in jobs if j['status']=='Claimed']; self.report_total.setText(f"{money(sum(j['estimate'] for j in claimed))}"); self.report_payments.setText(f"{money(sum(self.store.paid_centavos(j['id']) for j in jobs)/100)}")
 
 def main():
     parser=argparse.ArgumentParser(); parser.add_argument('--db',help='SQLite database path'); parser.add_argument('--demo',action='store_true',help='Add sample jobs only if database is empty'); args=parser.parse_args()
-    app=QApplication(sys.argv); app.setStyle('Fusion'); app.setFont(QFont('Segoe UI',10)); palette=app.palette(); palette.setColor(QPalette.Window,QColor('#FAF9F6')); palette.setColor(QPalette.Base,QColor('#FFFFFF')); palette.setColor(QPalette.Text,QColor('#1C1917')); palette.setColor(QPalette.WindowText,QColor('#1C1917')); palette.setColor(QPalette.Highlight,QColor('#EDE3CF')); palette.setColor(QPalette.HighlightedText,QColor('#1C1917')); app.setPalette(palette)
-    app.setStyleSheet('''QPushButton { padding:5px 12px; border:1px solid #CFC7BA; border-radius:4px; background:#FFFDF8; color:#1C1917; } QPushButton:hover { background:#F2EDE4; } QPushButton:focus { border:2px solid #8C5A00; } QPushButton#primary { background:#1C1917; color:white; border:1px solid #1C1917; font-weight:600; } QPushButton#primary:hover { background:#403832; } QLineEdit,QComboBox,QDateEdit,QDoubleSpinBox,QTextEdit { padding:5px; border:1px solid #CFC7BA; border-radius:4px; background:white; min-height:24px; } QLineEdit:focus,QComboBox:focus,QTextEdit:focus { border:2px solid #8C5A00; } QFrame#rail { background:#1C1917; } QLabel#brand { color:#FFFDF8; } QLabel#railCaption { color:#D5C6AC; font-size:9pt; } QPushButton#nav { text-align:left; color:#E8E2D8; background:transparent; border:0; padding:9px; } QPushButton#nav:checked { background:#40372F; border-left:3px solid #CA8A04; color:white; } QPushButton#nav:hover { background:#40372F; } QPushButton#triage { text-align:left; border:0; border-bottom:1px solid #E8E2D8; border-radius:0; padding:14px 4px; background:transparent; font-weight:600; } QPushButton#triage:focus { border:2px solid #8C5A00; } QPushButton#triage:hover { background:#F2EDE4; } QListWidget#recent { background:#FFFDF8; border:1px solid #E8E2D8; } QListWidget#recent::item { padding:9px 12px; border-bottom:1px solid #EEE9E1; } QLabel#emptyState { padding:24px; background:#FFFDF8; border:1px solid #E8E2D8; color:#57534E; } QLabel#statusBadge { padding:5px 10px; background:#EDE6D7; color:#654600; font-weight:600; } QLabel#reportTotal { padding:16px; background:#F2EDE4; font-weight:600; } QTableWidget { background:#FFFDF8; gridline-color:#EEE9E1; border:1px solid #E8E2D8; } QHeaderView::section { background:#F5F2EC; border:0; border-bottom:1px solid #E8E2D8; padding:8px; color:#44403C; font-weight:600; } QTableView { gridline-color:#EEE9E1; border:1px solid #E8E2D8; }''')
+    app=QApplication(sys.argv); apply_theme(app)
     if args.demo and not args.db: parser.error('--demo requires a separate --db path')
     db=args.db or str(Path(os.environ.get('LOCALAPPDATA',str(Path.home()))) / 'TheSaturationPoint' / 'PenCareStudio' / 'jobs.sqlite3'); store=Store(db)
     login=LoginDialog(store)
@@ -313,7 +386,7 @@ def main():
     elif args.demo: store.seed()
     window=Main(store)
     if is_demo: window.setWindowTitle(window.windowTitle()+' — DEMO DATA'); window.statusBar().showMessage('DEMO DATA · Separate from real jobs')
-    screen=app.primaryScreen().availableGeometry(); window.resize(min(1280,max(800,screen.width()-24)), min(800,max(600,screen.height()-60)))
+    screen=app.primaryScreen().availableGeometry(); window.resize(min(1440,max(780,screen.width()-24)), min(900,max(440,screen.height()-48)))
     window.show(); result=app.exec(); store.db.close(); return result
 if __name__=='__main__': sys.exit(main())
 
