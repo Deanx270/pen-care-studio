@@ -33,10 +33,10 @@ Demo data is added only if that database has no jobs. Use `--db PATH` to choose 
 - Use **New intake** (Ctrl+N) to register a job. Check services before adjusting the suggested estimate; changing services recalculates it.
 - Use **Jobs** and Ctrl+F to search. Click a column heading to sort. Due today and overdue omit ready, claimed and cancelled jobs.
 - Select a job to see its condition, estimate and activity. Add work notes, advance the job, or preview the service summary. The next status follows Received → Inspecting → In service → Ready → Claimed. Pickup and cancellation require confirmation; cancellation cannot be reversed in this release.
-- A service summary shows the estimate, not a payment or invoice. Printing depends on your system printer configuration.
+- Use **Edit intake** to correct saved details. Use **Record payment** to add one or more received payments with their date, method and optional note. The summary shows each payment separately from the estimate. Printing depends on your system printer configuration.
 
-This first release records intake details once; editing customer or job details after intake, payment tracking, staff accounts and automatic backups are not included. Activity identifies the operator as “Desk staff”.
+Payment status compares the total recorded payments with the estimate; the estimate is not a final invoice. Payments are append-only: corrections, refunds and payment deletion are not supported. Payments already recorded on cancelled jobs remain in the report total, but new payments cannot be added after cancellation. Staff accounts and automatic backups are not included. Activity identifies the operator as “Desk staff”. Existing databases gain a payments table on first launch; existing jobs and history are preserved.
 
 ## Verification
 
-Run `.\.venv\Scripts\python.exe verify.py` for database and GUI workflow checks using an in-memory database. `capture.py` generates local screenshots in `screenshots/`; its demo databases are separate from real data. Screens were reviewed with Qt scaling at 100%, 150%, and 200%, including a compact 1024×700 logical window. The summary preview was inspected; a physical printer was not exercised.
+Run `.\.venv\Scripts\python.exe verify.py` for database and GUI workflow checks using an in-memory database. Run `.\.venv\Scripts\python.exe verify_payments.py` for migration, editing, payment, receipt, reporting and cancellation checks in a separate temporary database. `capture.py` generates local screenshots in `screenshots/`; its demo databases are separate from real data. Screens were reviewed with Qt scaling at 100%, 150%, and 200%, including a compact 1024×700 logical window. The summary preview was inspected; a physical printer was not exercised.

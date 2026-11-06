@@ -5,7 +5,7 @@ from PySide6.QtCore import Qt, QDate, QSortFilterProxyModel
 from PySide6.QtGui import QAction, QColor, QFont, QPalette, QStandardItem, QStandardItemModel
 from PySide6.QtWidgets import *
 from PySide6.QtPrintSupport import QPrinter, QPrintDialog
-from store import Store, SERVICES, STATUSES, NEXT, ticket, money, due_label
+from store import Store, SERVICES, STATUSES, NEXT, ticket, money, due_label, payment_status
 
 def title(s, size=20):
     w=QLabel(s); w.setFont(QFont('Georgia',size)); w.setWordWrap(True); return w
@@ -36,9 +36,9 @@ def separator():
     f=QFrame(); f.setFrameShape(QFrame.HLine); f.setStyleSheet('color:#E8E2D8'); return f
 
 class Intake(QDialog):
-    def __init__(self, store, parent=None):
-        super().__init__(parent); self.store=store; self.saved_id=None; self.setWindowTitle('New intake'); self.resize(630,740)
-        v=QVBoxLayout(self); v.setContentsMargins(24,20,24,20); v.addWidget(title('New intake',19)); v.addWidget(text('Record the pen and agreed work before it enters the queue.',True)); self.error=text(''); self.error.setStyleSheet('color:#9F1239;font-weight:600'); v.addWidget(self.error)
+    def __init__(self, store, parent=None, job=None):
+        super().__init__(parent); self.store=store; self.job=job; self.saved_id=None; self.setWindowTitle('Edit intake' if job else 'New intake'); self.resize(630,740)
+        v=QVBoxLayout(self); v.setContentsMargins(24,20,24,20); v.addWidget(title('Edit intake' if job else 'New intake',19)); v.addWidget(text('Update the recorded details.' if job else 'Record the pen and agreed work before it enters the queue.',True)); self.error=text(''); self.error.setStyleSheet('color:#9F1239;font-weight:600'); v.addWidget(self.error)
         body=QWidget(); layout=QVBoxLayout(body); layout.setSpacing(12); layout.addWidget(title('Customer & pen',14)); form=QFormLayout(); form.setSpacing(10)
         self.customer=QLineEdit(); self.phone=QLineEdit(); self.email=QLineEdit(); self.pen=QLineEdit(); self.pen.setPlaceholderText('e.g. Lamy Safari · fine nib')
         for name,w in [('Customer *',self.customer),('Phone (optional)',self.phone),('Email (optional)',self.email),('Pen brand and model *',self.pen)]: form.addRow(name,w)
@@ -50,6 +50,16 @@ class Intake(QDialog):
         self.has_due=QCheckBox('Set a promised date'); self.due=QDateEdit(QDate.currentDate().addDays(7)); self.due.setCalendarPopup(True); self.due.setDisplayFormat('dd MMM yyyy'); self.due.setEnabled(False); self.has_due.toggled.connect(self.due.setEnabled)
         row=QWidget(); h=QHBoxLayout(row); h.setContentsMargins(0,0,0,0); h.addWidget(self.has_due); h.addWidget(self.due); h.addStretch(); f.addRow('Due date',row); layout.addLayout(f); layout.addStretch(); v.addWidget(scroll(body),1)
         controls=QDialogButtonBox(QDialogButtonBox.Save|QDialogButtonBox.Cancel); controls.accepted.connect(self.save); controls.rejected.connect(self.reject); v.addWidget(controls)
+        if job:
+            self.customer.setText(job['customer']); self.phone.setText(job['phone'] or ''); self.email.setText(job['email'] or ''); self.pen.setText(job['pen']); self.condition.setPlainText(job['condition'] or '')
+            selected=[part.strip() for part in job['services'].split(',') if part.strip()]
+            for c,n,p in self.checks: c.setChecked(n in selected)
+            for name in selected:
+                if name not in [n for c,n,p in self.checks]:
+                    c=QCheckBox(name+'  ·  existing service'); c.setChecked(True); c.stateChanged.connect(self.calculate); layout.insertWidget(layout.indexOf(self.checks[-1][0])+1,c); self.checks.append((c,name,0))
+            self.estimate.setValue(job['estimate'])
+            if job['due']: self.has_due.setChecked(True); self.due.setDate(QDate.fromString(job['due'],'yyyy-MM-dd'))
+
     def calculate(self): self.estimate.setValue(sum(p for c,n,p in self.checks if c.isChecked()))
     def save(self):
         services=', '.join(n for c,n,p in self.checks if c.isChecked())
@@ -57,8 +67,31 @@ class Intake(QDialog):
             if not w.text().strip(): self.error.setText(msg); w.setFocus(); return
         if not services: self.error.setText('Select at least one service.'); self.checks[0][0].setFocus(); return
         try:
-            self.saved_id=self.store.create(dict(customer=self.customer.text(),phone=self.phone.text(),email=self.email.text(),pen=self.pen.text(),condition=self.condition.toPlainText(),services=services,estimate=self.estimate.value(),due=self.due.date().toString('yyyy-MM-dd') if self.has_due.isChecked() else None)); self.accept()
+            values=dict(customer=self.customer.text(),phone=self.phone.text(),email=self.email.text(),pen=self.pen.text(),condition=self.condition.toPlainText(),services=services,estimate=self.estimate.value(),due=self.due.date().toString('yyyy-MM-dd') if self.has_due.isChecked() else None)
+            if self.job: self.store.update(self.job['id'],values); self.saved_id=self.job['id']
+            else: self.saved_id=self.store.create(values)
+            self.accept()
         except Exception as e: self.error.setText(f'Could not save intake: {e}')
+
+class PaymentDialog(QDialog):
+    def __init__(self, store, job, parent=None):
+        super().__init__(parent); self.store=store; self.job=job; self.setWindowTitle('Record payment'); self.resize(460,360)
+        v=QVBoxLayout(self); v.setContentsMargins(24,20,24,20); v.addWidget(title('Record payment',19)); v.addWidget(text(f"{ticket(job['id'])} · {job['customer']}",True))
+        self.error=text(''); self.error.setStyleSheet('color:#9F1239;font-weight:600'); v.addWidget(self.error)
+        form=QFormLayout(); form.setSpacing(12); self.amount=QDoubleSpinBox(); self.amount.setPrefix('₱ '); self.amount.setDecimals(2); self.amount.setRange(0,1000000); self.method=QComboBox(); self.method.addItems(['Cash','Bank transfer','E-wallet','Card','Other']); self.received=QDateEdit(QDate.currentDate()); self.received.setCalendarPopup(True); self.received.setDisplayFormat('dd MMM yyyy'); self.note=QLineEdit()
+        form.addRow('Amount received *',self.amount); form.addRow('Method *',self.method); form.addRow('Date received *',self.received); form.addRow('Note (optional)',self.note); v.addLayout(form); v.addWidget(text('Payments are separate from the estimate and cannot be edited or removed after saving.',True)); v.addStretch()
+        controls=QDialogButtonBox(QDialogButtonBox.Save|QDialogButtonBox.Cancel); controls.accepted.connect(self.save); controls.rejected.connect(self.reject); v.addWidget(controls)
+    def save(self):
+        try:
+            self.store.record_payment(self.job['id'],self.amount.value(),self.method.currentText(),self.received.date().toString('yyyy-MM-dd'),self.note.text()); self.accept()
+        except ValueError as e: self.error.setText(str(e)); self.amount.setFocus()
+        except Exception as e: self.error.setText(f'Could not save payment: {e}')
+
+def summary_html(store, j):
+    esc=lambda s:html.escape(str(s or '—')).replace('\n','<br>')
+    paid=store.paid_centavos(j['id']); payments=store.payments(j['id'])
+    lines=''.join(f"<p>{esc(p['received_at'])} · {esc(p['method'])} · {money(p['amount_centavos']/100)}"+(f"<br>{esc(p['note'])}" if p['note'] else '')+'</p>' for p in reversed(payments)) or '<p>No payment recorded.</p>'
+    return f"""<h2>The Saturation Point</h2><p>Pen Care Studio · Service summary</p><hr><h3>{ticket(j['id'])} &nbsp; | &nbsp; {esc(j['status'])}</h3><p><b>Customer:</b> {esc(j['customer'])}<br><b>Pen:</b> {esc(j['pen'])}<br><b>Received:</b> {esc(j['created'][:10])}<br><b>Promised:</b> {esc(j['due'])}<br><b>Picked up:</b> {esc(j['claimed'][:10] if j['claimed'] else None)}</p><hr><p><b>Requested work</b><br>{esc(j['services'])}</p><p><b>Condition at intake</b><br>{esc(j['condition'])}</p><p><b>Estimate:</b> {money(j['estimate'])}<br><b>Payments recorded:</b> {money(paid/100)}<br><b>Payment status:</b> {esc(payment_status(j,paid))}</p><p>Payment status compares recorded payments with the estimate; the estimate is not a final invoice.</p><hr><b>Payment details</b>{lines}"""
 
 class Proxy(QSortFilterProxyModel):
     def __init__(self): super().__init__(); self.query=''; self.status='All statuses'; self.due='Any due date'
@@ -122,8 +155,8 @@ class Main(QMainWindow):
                 table.setItem(row,0,QTableWidgetItem(name_)); item=QTableWidgetItem(money(price)); item.setTextAlignment(Qt.AlignRight|Qt.AlignVCenter); table.setItem(row,1,item)
             table.setMaximumHeight(340); v.addWidget(table); v.addStretch()
         else:
-            v.addWidget(title('Job status',15)); self.report_table=QTableWidget(0,2); self.report_table.setHorizontalHeaderLabels(['STATUS','JOBS']); self.report_table.horizontalHeader().setSectionResizeMode(0,QHeaderView.Stretch); self.report_table.horizontalHeader().setSectionResizeMode(1,QHeaderView.ResizeToContents); self.report_table.verticalHeader().hide(); self.report_table.verticalHeader().setDefaultSectionSize(42); self.report_table.setEditTriggers(QAbstractItemView.NoEditTriggers); self.report_table.setSelectionMode(QAbstractItemView.NoSelection); self.report_table.setMaximumHeight(300); v.addWidget(self.report_table)
-            self.report_total=text(''); self.report_total.setObjectName('reportTotal'); v.addWidget(self.report_total); v.addWidget(text('Claimed estimates are not recorded payments or revenue.',True)); v.addStretch()
+            v.addWidget(title('Job status',15)); self.report_table=QTableWidget(0,2); self.report_table.setHorizontalHeaderLabels(['STATUS','JOBS']); self.report_table.horizontalHeader().setSectionResizeMode(0,QHeaderView.Stretch); self.report_table.horizontalHeader().setSectionResizeMode(1,QHeaderView.ResizeToContents); self.report_table.verticalHeader().hide(); self.report_table.verticalHeader().setDefaultSectionSize(42); self.report_table.setEditTriggers(QAbstractItemView.NoEditTriggers); self.report_table.setSelectionMode(QAbstractItemView.NoSelection); self.report_table.setFixedHeight(300); v.addWidget(self.report_table)
+            self.report_total=text(''); self.report_total.setObjectName('reportTotal'); v.addWidget(self.report_total); self.report_payments=text(''); self.report_payments.setObjectName('reportTotal'); v.addWidget(self.report_payments); v.addWidget(text('Estimates are not invoices. Payments include all jobs, including cancelled jobs; no refunds are recorded.',True)); v.addStretch()
         return page
     def filter_customers(self, *args):
         query=self.customer_search.text().strip().lower()
@@ -172,20 +205,30 @@ class Main(QMainWindow):
             self.detail.addWidget(text('JOB DETAILS',True)); self.detail.addWidget(title('Your workbench',16)); self.detail.addWidget(text('Select a job in the queue to review its condition, work and next step.',True)); self.detail.addStretch(); return
         j=self.store.get(self.selected)
         if not j: return
-        self.detail.addWidget(text(f'SELECTED JOB  ·  {ticket(j["id"])}',True)); self.detail.addWidget(title(j['pen'],16)); self.detail.addWidget(text(j['customer'])); status=text(j['status']); status.setObjectName('statusBadge'); self.detail.addWidget(status,0,Qt.AlignLeft); self.detail.addWidget(text(f'Due: {due_label(j)}',True)); self.detail.addWidget(separator())
-        for name,value in [('REQUESTED WORK',j['services']),('INTAKE CONDITION',j['condition'] or 'No condition notes recorded.'),('ESTIMATE',money(j['estimate'])),('CONTACT',' · '.join(filter(None,[j['phone'],j['email']])) or 'No contact details recorded.')]: self.detail.addWidget(text(name,True)); self.detail.addWidget(text(value))
-        self.detail.addWidget(separator())
+        self.detail.addWidget(text(f'SELECTED JOB  ·  {ticket(j["id"])}',True)); self.detail.addWidget(title(j['pen'],16)); self.detail.addWidget(text(j['customer'])); status=text(j['status']); status.setObjectName('statusBadge'); self.detail.addWidget(status,0,Qt.AlignLeft); self.detail.addWidget(text(f'Due: {due_label(j)}',True));
         if j['status'] in NEXT:
             b=btn('Mark '+NEXT[j['status']].lower(),True); b.clicked.connect(self.advance); self.detail.addWidget(b)
+        self.detail.addWidget(separator())
+        for name,value in [('REQUESTED WORK',j['services']),('INTAKE CONDITION',j['condition'] or 'No condition notes recorded.'),('ESTIMATE',money(j['estimate'])),('PAYMENT',f"{payment_status(j,self.store.paid_centavos(j['id']))} · {money(self.store.paid_centavos(j['id'])/100)} recorded"),('CONTACT',' · '.join(filter(None,[j['phone'],j['email']])) or 'No contact details recorded.')]: self.detail.addWidget(text(name,True)); self.detail.addWidget(text(value))
+        self.detail.addWidget(separator())
+        edit=btn('Edit intake'); edit.clicked.connect(self.edit_intake); self.detail.addWidget(edit)
+        if j['status'] != 'Cancelled':
+            payment=btn('Record payment'); payment.clicked.connect(self.record_payment); self.detail.addWidget(payment)
         h=QHBoxLayout(); note=btn('Add work note'); note.clicked.connect(self.add_note); h.addWidget(note); receipt=btn('Service summary'); receipt.clicked.connect(self.receipt); h.addWidget(receipt); self.detail.addLayout(h)
         if j['status'] not in ('Claimed','Cancelled'):
             cancel=btn('Cancel job…'); cancel.clicked.connect(self.cancel); self.detail.addWidget(cancel)
         self.detail.addWidget(separator()); self.detail.addWidget(text('ACTIVITY',True))
         for a in self.store.history(j['id']): self.detail.addWidget(text(f'{a["at"].replace("T"," ")}\n{a["message"]}'))
         self.detail.addStretch()
+    def edit_intake(self):
+        j=self.store.get(self.selected); d=Intake(self.store,self,job=j)
+        if d.exec(): self.refresh(); self.statusBar().showMessage(f"{ticket(j['id'])} updated",6000)
+    def record_payment(self):
+        j=self.store.get(self.selected); d=PaymentDialog(self.store,j,self)
+        if d.exec(): self.refresh(); self.statusBar().showMessage(f"Payment recorded for {ticket(j['id'])}",6000)
     def advance(self):
         j=self.store.get(self.selected); target=NEXT[j['status']]
-        if target=='Claimed' and QMessageBox.question(self,'Confirm pickup',f'Mark {ticket(j["id"])} as claimed by the customer?')!=QMessageBox.Yes: return
+        if target=='Claimed' and QMessageBox.question(self,'Confirm pickup',f"Mark {ticket(j['id'])} as claimed by the customer?\n\n{payment_status(j,self.store.paid_centavos(j['id']))} · {money(self.store.paid_centavos(j['id'])/100)} recorded against estimate {money(j['estimate'])}.")!=QMessageBox.Yes: return
         self.store.transition(j['id'],target); self.refresh(); self.statusBar().showMessage(f'{ticket(j["id"])} marked {target.lower()}',6000)
     def cancel(self):
         j=self.store.get(self.selected)
@@ -196,8 +239,7 @@ class Main(QMainWindow):
             if not value.strip(): QMessageBox.warning(self,'Work note','Enter a work note.'); return
             self.store.note(self.selected,value); self.refresh(); self.statusBar().showMessage('Work note saved',5000)
     def receipt(self):
-        j=self.store.get(self.selected); esc=lambda s:html.escape(str(s or '—')).replace('\n','<br>')
-        content=f'''<h2>The Saturation Point</h2><p>Pen Care Studio · Service summary</p><hr><h3>{ticket(j['id'])} &nbsp; | &nbsp; {esc(j['status'])}</h3><p><b>Customer:</b> {esc(j['customer'])}<br><b>Pen:</b> {esc(j['pen'])}<br><b>Received:</b> {esc(j['created'][:10])}<br><b>Promised:</b> {esc(j['due'])}<br><b>Picked up:</b> {esc(j['claimed'][:10] if j['claimed'] else None)}</p><hr><p><b>Requested work</b><br>{esc(j['services'])}</p><p><b>Condition at intake</b><br>{esc(j['condition'])}</p><p><b>Estimate: {money(j['estimate'])}</b><br>Payment has not been recorded in this application.</p>'''
+        j=self.store.get(self.selected); content=summary_html(self.store,j)
         d=QDialog(self); d.setWindowTitle('Service summary'); d.resize(560,650); v=QVBoxLayout(d); view=QTextBrowser(); view.setHtml(content); v.addWidget(view); h=QHBoxLayout(); h.addStretch(); p=btn('Print…',True); h.addWidget(p); close=btn('Close'); close.clicked.connect(d.accept); h.addWidget(close); v.addLayout(h)
         def do_print():
             printer=QPrinter(); dialog=QPrintDialog(printer,d)
@@ -230,7 +272,7 @@ class Main(QMainWindow):
         self.report_table.setRowCount(len(STATUSES))
         for row,status in enumerate(STATUSES):
             self.report_table.setItem(row,0,QTableWidgetItem(status)); item=QTableWidgetItem(str(sum(j['status']==status for j in jobs))); item.setTextAlignment(Qt.AlignRight|Qt.AlignVCenter); self.report_table.setItem(row,1,item)
-        claimed=[j for j in jobs if j['status']=='Claimed']; self.report_total.setText(f"CLAIMED JOB ESTIMATES     {money(sum(j['estimate'] for j in claimed))}")
+        claimed=[j for j in jobs if j['status']=='Claimed']; self.report_total.setText(f"CLAIMED JOB ESTIMATES     {money(sum(j['estimate'] for j in claimed))}"); self.report_payments.setText(f"PAYMENTS RECORDED · ALL JOBS     {money(sum(self.store.paid_centavos(j['id']) for j in jobs)/100)}")
 
 def main():
     parser=argparse.ArgumentParser(); parser.add_argument('--db',help='SQLite database path'); parser.add_argument('--demo',action='store_true',help='Add sample jobs only if database is empty'); args=parser.parse_args()
