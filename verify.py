@@ -15,3 +15,9 @@ w.search.clear(); w.due_filter.setCurrentText('Overdue'); assert w.proxy.rowCoun
 w.due_filter.setCurrentIndex(0); w.select_id(j['id']); assert w.selected==j['id']; s.note(j['id'],'Pickup checked'); w.refresh(); assert w.selected==j['id']
 d=app.Intake(s,w); d.customer.setText('María de los Angeles Santos'); d.pen.setText('Lamy Safari'); d.save(); assert not d.saved_id and 'service' in d.error.text().lower(); d.checks[0][0].setChecked(True); d.has_due.setChecked(True); d.save(); assert d.saved_id and s.get(d.saved_id)['due']; print('Workflow checks passed')
 
+
+w.show_page('Customers'); w.customer_search.setText('Miguel'); assert sum(not w.customer_table.isRowHidden(i) for i in range(w.customer_table.rowCount())) == 1
+w.customer_table.selectRow(next(i for i in range(w.customer_table.rowCount()) if not w.customer_table.isRowHidden(i))); w.open_customer(); assert w.search.text() == 'Miguel Reyes' and w.proxy.rowCount() == 1
+w.refresh(); w.show_page('Overview'); item=w.recent.item(0); jid=item.data(__import__('PySide6').QtCore.Qt.UserRole); w.open_recent(item); assert w.selected == jid
+print('Reference page checks passed')
+
