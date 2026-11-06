@@ -33,7 +33,8 @@ def clear_layout(layout):
         if item.layout(): clear_layout(item.layout())
         widget=item.widget()
         if widget:
-            widget.setParent(None)
+            # Keep ownership until deferred deletion; detaching creates native windows.
+            widget.hide()
             widget.deleteLater()
 
 def separator():

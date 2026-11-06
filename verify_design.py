@@ -33,3 +33,13 @@ for dialog in (LoginDialog(store),Intake(store),PaymentDialog(store,store.get(1)
  dialog.close()
 print('Themed headers, triage alignment/keyboard, compact navigation, empty action and dialog bounds passed')
 w.close(); store.db.close()
+
+# Retired controls must never become independent top-level windows.
+from app import clear_layout
+from PySide6.QtWidgets import QWidget,QVBoxLayout,QHBoxLayout,QLabel
+host=QWidget(); layout=QVBoxLayout(host); nested=QHBoxLayout(); layout.addLayout(nested)
+label=QLabel('Retired detail'); nested.addWidget(label); host.show(); q.processEvents()
+clear_layout(layout)
+assert label.parentWidget() is host and not label.isWindow() and label.isHidden()
+host.close()
+print('Layout cleanup retains widget ownership until deletion')
