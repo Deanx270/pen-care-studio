@@ -21,3 +21,13 @@ w.customer_table.selectRow(next(i for i in range(w.customer_table.rowCount()) if
 w.refresh(); w.show_page('Overview'); item=w.recent.item(0); jid=item.data(__import__('PySide6').QtCore.Qt.UserRole); w.open_recent(item); assert w.selected == jid
 print('Reference page checks passed')
 
+# The detail scroll area must fill the pane even when the first message is short.
+empty_store=Store(':memory:'); empty_window=app.Main(empty_store); empty_window.resize(1280,800); empty_window.show(); empty_window.show_page('Jobs'); q.processEvents()
+assert empty_window.detail_scroll.height() > 300
+empty_labels=empty_window.detail_widget.findChildren(app.QLabel)
+message=next(x for x in empty_labels if x.text().startswith('Select a job in the queue'))
+assert message.height() >= message.heightForWidth(message.width())
+long_id=empty_store.create(dict(customer='Ana Santos',pen='Lamy Safari',services='Ink flush',condition='Visible staining and wear. '*40))
+empty_window.refresh(); empty_window.select_id(long_id); q.processEvents()
+assert empty_window.detail_scroll.verticalScrollBar().maximum() > 0
+print('Detail pane sizing checks passed')

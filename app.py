@@ -106,7 +106,7 @@ class Main(QMainWindow):
         self.split=QSplitter(); self.split.setChildrenCollapsible(False); v.addWidget(self.split,1); left=QWidget(); lv=QVBoxLayout(left); lv.setContentsMargins(0,0,0,0)
         self.table=QTableView(); self.model=QStandardItemModel(0,6); self.model.setHorizontalHeaderLabels(['Ticket','Customer','Pen','Service','Due','Status']); self.proxy=Proxy(); self.proxy.setSourceModel(self.model); self.table.setModel(self.proxy); self.table.setSelectionBehavior(QAbstractItemView.SelectRows); self.table.setSelectionMode(QAbstractItemView.SingleSelection); self.table.setEditTriggers(QAbstractItemView.NoEditTriggers); self.table.verticalHeader().hide(); self.table.verticalHeader().setDefaultSectionSize(44); self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive); self.table.horizontalHeader().setStretchLastSection(True); self.table.setSortingEnabled(True); self.table.selectionModel().selectionChanged.connect(self.selection_changed)
         for i,w in enumerate([80,120,145,125,115,95]): self.table.setColumnWidth(i,w)
-        lv.addWidget(self.table); self.empty=text(''); self.empty.setObjectName('emptyState'); lv.addWidget(self.empty); self.split.addWidget(left); self.detail_widget=QWidget(); self.detail=QVBoxLayout(self.detail_widget); self.detail.setContentsMargins(18,10,8,10); self.detail.setSpacing(10); self.detail.setSizeConstraint(QLayout.SetMinAndMaxSize); self.detail_scroll=scroll(self.detail_widget); self.detail_scroll.setMinimumWidth(250); self.split.addWidget(self.detail_scroll); self.split.setSizes([760,330]); return page
+        lv.addWidget(self.table); self.empty=text(''); self.empty.setObjectName('emptyState'); lv.addWidget(self.empty); self.split.addWidget(left); self.detail_widget=QWidget(); self.detail=QVBoxLayout(self.detail_widget); self.detail.setContentsMargins(18,10,8,10); self.detail.setSpacing(10); self.detail.setSizeConstraint(QLayout.SetMinimumSize); self.detail_scroll=scroll(self.detail_widget); self.detail_scroll.setMinimumWidth(250); self.split.addWidget(self.detail_scroll); self.split.setSizes([760,330]); return page
     def make_reference_page(self, name):
         page=QWidget(); v=QVBoxLayout(page); v.setContentsMargins(32,28,32,24); v.setSpacing(16)
         descriptions={'Customers':'People and their recorded care jobs.','Services':'Starting estimates for workshop services.','Reports':'A local snapshot of completed and active work.'}
@@ -240,3 +240,4 @@ def main():
     if args.demo: store.seed()
     window=Main(store); window.show(); return app.exec()
 if __name__=='__main__': sys.exit(main())
+
