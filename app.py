@@ -139,7 +139,7 @@ class Main(QMainWindow):
         self.split=QSplitter(); self.split.setChildrenCollapsible(False); v.addWidget(self.split,1); left=QWidget(); lv=QVBoxLayout(left); lv.setContentsMargins(0,0,0,0)
         self.table=QTableView(); self.model=QStandardItemModel(0,6); self.model.setHorizontalHeaderLabels(['Ticket','Customer','Pen','Service','Due','Status']); self.proxy=Proxy(); self.proxy.setSourceModel(self.model); self.table.setModel(self.proxy); self.table.setSelectionBehavior(QAbstractItemView.SelectRows); self.table.setSelectionMode(QAbstractItemView.SingleSelection); self.table.setEditTriggers(QAbstractItemView.NoEditTriggers); self.table.verticalHeader().hide(); self.table.verticalHeader().setDefaultSectionSize(44); self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive); self.table.horizontalHeader().setStretchLastSection(True); self.table.setSortingEnabled(True); self.table.selectionModel().selectionChanged.connect(self.selection_changed)
         for i,w in enumerate([80,120,145,125,115,95]): self.table.setColumnWidth(i,w)
-        lv.addWidget(self.table); self.empty=text(''); self.empty.setObjectName('emptyState'); lv.addWidget(self.empty); self.split.addWidget(left); self.detail_widget=QWidget(); self.detail=QVBoxLayout(self.detail_widget); self.detail.setContentsMargins(18,10,8,10); self.detail.setSpacing(10); self.detail.setSizeConstraint(QLayout.SetMinimumSize); self.detail_scroll=scroll(self.detail_widget); self.detail_scroll.setMinimumWidth(250); self.split.addWidget(self.detail_scroll); self.split.setSizes([760,330]); return page
+        lv.addWidget(self.table); self.empty=text(''); self.empty.setObjectName('emptyState'); lv.addWidget(self.empty); self.split.addWidget(left); self.detail_widget=QWidget(); self.detail=QVBoxLayout(self.detail_widget); self.detail.setContentsMargins(18,10,8,10); self.detail.setSpacing(10); self.detail.setSizeConstraint(QLayout.SetMinimumSize); self.detail_scroll=scroll(self.detail_widget); self.detail_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn); self.detail_scroll.setMinimumWidth(250); self.split.addWidget(self.detail_scroll); self.split.setSizes([760,330]); return page
     def make_reference_page(self, name):
         page=QWidget(); v=QVBoxLayout(page); v.setContentsMargins(32,28,32,24); v.setSpacing(16)
         descriptions={'Customers':'People and their recorded care jobs.','Services':'Starting estimates for workshop services.','Reports':'A local snapshot of completed and active work.'}
@@ -208,13 +208,14 @@ class Main(QMainWindow):
         self.detail.addWidget(text(f'SELECTED JOB  ·  {ticket(j["id"])}',True)); self.detail.addWidget(title(j['pen'],16)); self.detail.addWidget(text(j['customer'])); status=text(j['status']); status.setObjectName('statusBadge'); self.detail.addWidget(status,0,Qt.AlignLeft); self.detail.addWidget(text(f'Due: {due_label(j)}',True));
         if j['status'] in NEXT:
             b=btn('Mark '+NEXT[j['status']].lower(),True); b.clicked.connect(self.advance); self.detail.addWidget(b)
+        actions=QHBoxLayout(); edit=btn('Edit intake'); edit.clicked.connect(self.edit_intake); actions.addWidget(edit)
+        if j['status'] != 'Cancelled':
+            payment=btn('Record payment'); payment.clicked.connect(self.record_payment); actions.addWidget(payment)
+        self.detail.addLayout(actions)
+        h=QHBoxLayout(); note=btn('Add work note'); note.clicked.connect(self.add_note); h.addWidget(note); receipt=btn('Service summary'); receipt.clicked.connect(self.receipt); h.addWidget(receipt); self.detail.addLayout(h)
         self.detail.addWidget(separator())
         for name,value in [('REQUESTED WORK',j['services']),('INTAKE CONDITION',j['condition'] or 'No condition notes recorded.'),('ESTIMATE',money(j['estimate'])),('PAYMENT',f"{payment_status(j,self.store.paid_centavos(j['id']))} · {money(self.store.paid_centavos(j['id'])/100)} recorded"),('CONTACT',' · '.join(filter(None,[j['phone'],j['email']])) or 'No contact details recorded.')]: self.detail.addWidget(text(name,True)); self.detail.addWidget(text(value))
         self.detail.addWidget(separator())
-        edit=btn('Edit intake'); edit.clicked.connect(self.edit_intake); self.detail.addWidget(edit)
-        if j['status'] != 'Cancelled':
-            payment=btn('Record payment'); payment.clicked.connect(self.record_payment); self.detail.addWidget(payment)
-        h=QHBoxLayout(); note=btn('Add work note'); note.clicked.connect(self.add_note); h.addWidget(note); receipt=btn('Service summary'); receipt.clicked.connect(self.receipt); h.addWidget(receipt); self.detail.addLayout(h)
         if j['status'] not in ('Claimed','Cancelled'):
             cancel=btn('Cancel job…'); cancel.clicked.connect(self.cancel); self.detail.addWidget(cancel)
         self.detail.addWidget(separator()); self.detail.addWidget(text('ACTIVITY',True))
